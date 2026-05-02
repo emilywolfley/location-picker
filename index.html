@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pick Your Location · Emily Sharon Photography</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  :root {
+    --cream:    #f7f3ec;
+    --warm:     #efe6d6;
+    --sage:     #8a9b80;
+    --sage-dk:  #6b7c63;
+    --rose:     #c89898;
+    --ink:      #2b2622;
+    --ink-soft: #5a504a;
+    --gold:     #b89968;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+  h1, h2, h3 { font-family: 'Cormorant Garamond', serif; font-weight: 500; letter-spacing: -0.5px; }
+  h1 { font-size: clamp(2rem, 5vw, 3.4rem); margin: 0 0 0.4em 0; }
+  h2 { font-size: clamp(1.4rem, 3vw, 2rem); margin: 0 0 0.4em 0; }
+  p  { line-height: 1.6; color: var(--ink-soft); margin: 0 0 1.2em 0; }
+
+  .stage {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 64px 24px 100px;
+    min-height: 100vh;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .stage--wide { max-width: 1200px; }
+
+  .brand {
+    position: fixed; top: 24px; left: 24px;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.05rem;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .progress {
+    position: fixed; top: 24px; right: 24px;
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    letter-spacing: 1px;
+  }
+  .progress span { color: var(--ink); font-weight: 500; }
+
+  .step { animation: fadeIn 0.45s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+  .card {
+    background: white;
+    border-radius: 18px;
+    padding: 40px;
+    box-shadow: 0 8px 30px rgba(43, 38, 34, 0.06);
+  }
+
+  /* Inputs */
+  .input, select {
+    width: 100%;
+    padding: 16px 18px;
+    font-size: 1.05rem;
+    font-family: inherit;
+    border: 1px solid #e3dccf;
+    border-radius: 12px;
+    background: var(--cream);
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .input:focus, select:focus { border-color: var(--sage); }
+
+  /* Option-style buttons (drive time / month) */
+  .options {
+    display: grid; gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+  .options-month {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .option {
+    background: var(--cream);
+    border: 1px solid #e3dccf;
+    border-radius: 12px;
+    padding: 18px 12px;
+    font-family: inherit;
+    font-size: 1rem;
+    color: var(--ink);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .option .o-label { font-family: 'Cormorant Garamond', serif; font-size: 1.3rem; }
+  .option .o-sub   { font-size: 0.74rem; color: var(--ink-soft); margin-top: 4px; letter-spacing: 0.5px; }
+  .option:hover    { border-color: var(--sage); transform: translateY(-1px); }
+  .option.active   { background: var(--sage); color: white; border-color: var(--sage); }
+  .option.active .o-sub { color: rgba(255,255,255,0.85); }
+
+  /* Primary CTA */
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 28px;
+    background: var(--ink);
+    color: var(--cream);
+    border: none;
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+  }
+  .btn:hover:not(:disabled) { background: var(--sage); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-secondary {
+    background: transparent;
+    color: var(--ink-soft);
+    border: 1px solid #e3dccf;
+  }
+  .btn-secondary:hover { color: var(--ink); border-color: var(--ink-soft); background: transparent; }
+  .btn-small {
+    padding: 10px 20px;
+    font-size: 0.78rem;
+  }
+
+  .btn-row { display: flex; justify-content: space-between; gap: 12px; margin-top: 28px; }
+
+  /* Inline filter bar on map step */
+  .filter-bar {
+    display: flex; gap: 10px; flex-wrap: wrap;
+    margin: 0 auto 18px; max-width: 100%;
+    justify-content: center; align-items: center;
+  }
+  .filter-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 16px;
+    background: white;
+    border: 1px solid #e3dccf;
+    border-radius: 999px;
+    font-size: 0.88rem;
+    color: var(--ink);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .filter-pill:hover { border-color: var(--sage); }
+  .filter-pill .pill-key { color: var(--ink-soft); font-size: 0.75rem; letter-spacing: 0.5px; text-transform: uppercase; margin-right: 4px; }
+  .filter-pill .pill-val { font-weight: 500; }
+  .filter-pill select {
+    border: none; background: transparent; padding: 0; font-size: 0.88rem;
+    font-family: inherit; font-weight: 500; color: var(--ink); outline: none;
+    cursor: pointer; appearance: auto;
+    width: auto;
+  }
+  .filter-pill .pill-edit { color: var(--sage-dk); font-size: 0.78rem; text-decoration: underline; cursor: pointer; }
+
+  /* Map step */
+  .map-wrap {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 16px;
+    height: 65vh;
+    min-height: 480px;
+  }
+  @media (max-width: 800px) {
+    .map-wrap { grid-template-columns: 1fr; height: auto; }
+    #map { height: 50vh; min-height: 360px; }
+    .results { max-height: 40vh; }
+  }
+  #map {
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 8px 30px rgba(43, 38, 34, 0.08);
+  }
+  .results {
+    background: white;
+    border-radius: 16px;
+    padding: 18px;
+    overflow-y: auto;
+    box-shadow: 0 8px 30px rgba(43, 38, 34, 0.06);
+  }
+  .results h3 { font-size: 1.15rem; margin-bottom: 8px; }
+  .result-count { font-size: 0.82rem; color: var(--ink-soft); margin-bottom: 14px; }
+  .loc-card {
+    padding: 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+    margin-bottom: 6px;
+  }
+  .loc-card:hover { background: var(--cream); border-color: #e3dccf; }
+  .loc-card.active { background: var(--cream); border-color: var(--sage); }
+  .loc-name { font-family: 'Cormorant Garamond', serif; font-size: 1.15rem; margin-bottom: 2px; }
+  .loc-meta { font-size: 0.78rem; color: var(--ink-soft); }
+  .loc-notes { font-size: 0.82rem; color: var(--ink-soft); margin-top: 6px; font-style: italic; }
+  .loc-access { font-size: 0.78rem; color: var(--sage-dk); margin-top: 4px; }
+
+  .leaflet-popup-content { font-family: inherit; min-width: 220px; }
+  .popup-photo {
+    width: 100%; height: 120px;
+    background: linear-gradient(135deg, var(--warm), var(--sage));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    color: white;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 0.85rem;
+    margin-bottom: 10px;
+    text-align: center; padding: 0 12px;
+  }
+  .popup-name { font-family: 'Cormorant Garamond', serif; font-size: 1.2rem; margin: 0 0 4px 0; }
+  .popup-meta { font-size: 0.78rem; color: var(--ink-soft); margin-bottom: 4px; }
+  .popup-access { font-size: 0.78rem; color: var(--sage-dk); margin-bottom: 8px; }
+
+  /* Confirmation step */
+  .check-row {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 14px;
+    background: var(--cream);
+    border-radius: 10px;
+    margin: 24px 0;
+    cursor: pointer;
+  }
+  .check-row input { margin-top: 3px; }
+  .check-row span { font-size: 0.92rem; line-height: 1.5; }
+
+  .pay-options { display: flex; gap: 12px; margin-top: 20px; }
+  .pay-options .btn { flex: 1; justify-content: center; }
+  .pay-options .stripe-btn { background: #635bff; }
+  .pay-options .stripe-btn:hover { background: #5048e5; }
+
+  .deposit-note {
+    font-size: 0.85rem; color: var(--ink-soft); font-style: italic;
+    margin-top: 10px;
+  }
+
+  .small-note { font-size: 0.78rem; color: var(--ink-soft); margin-top: 16px; }
+  .label { display: block; font-size: 0.78rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 8px; }
+
+  .pill {
+    display: inline-block;
+    padding: 4px 12px;
+    background: var(--warm);
+    color: var(--ink-soft);
+    border-radius: 999px;
+    font-size: 0.78rem;
+    letter-spacing: 0.5px;
+    margin-right: 6px;
+  }
+
+  .change-location-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 16px;
+    padding: 10px 20px;
+    background: transparent;
+    color: var(--sage-dk);
+    border: 1px solid var(--sage);
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .change-location-btn:hover { background: var(--sage); color: white; }
+</style>
+</head>
+<body>
+
+<div class="brand">EMILY SHARON</div>
+<div class="progress">Step <span id="step-num">1</span> of 5</div>
+
+<div class="stage" id="stage">
+  <!-- Steps render here -->
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ============================================================================
+// MONTH HELPERS
+// ============================================================================
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const MONTH_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+// Reusable month sets (1=Jan, 12=Dec)
+const M = {
+  ALL:    [1,2,3,4,5,6,7,8,9,10,11,12],
+  WARM:   [4,5,6,7,8,9,10],          // April–October
+  HIKE:   [5,6,7,8,9,10],            // May–October
+  ALPINE: [6,7,8,9,10],              // June–October (snow-locked spots)
+  STG:    [9,10,11,12,1,2,3,4,5]     // St George comfort: avoid summer heat
+};
+
+// ============================================================================
+// LOCATION DATA
+// ============================================================================
+const LOCATIONS = [
+  // ---- LOGAN ----
+  { id:"lavender-apple-farm",      name:"The Lavender Apple Farm",         lat:41.7167, lng:-111.9836, months:[6,7],           accessibility:"", notes:"Lavender + apple farm, Mendon area",            type:"outdoor" },
+  { id:"tonys-grove",              name:"Tony's Grove",                    lat:41.8932, lng:-111.6486, months:M.ALPINE,        accessibility:"", notes:"Alpine lake in Logan Canyon",                   type:"outdoor" },
+  { id:"rattlesnake-trail",        name:"Rattlesnake Trail",               lat:41.7531, lng:-111.7497, months:M.WARM,          accessibility:"", notes:"Logan Canyon",                                   type:"outdoor" },
+  { id:"temple-fork",              name:"Temple Fork",                     lat:41.8260, lng:-111.5645, months:M.HIKE,          accessibility:"", notes:"Logan Canyon",                                   type:"outdoor" },
+  { id:"wellsville-pond",          name:"Wellsville Pond",                 lat:41.6322, lng:-111.9405, months:[3,4,5,6,7,8,9,10,11], accessibility:"", notes:"",                                  type:"outdoor" },
+  { id:"beaver-mountain",          name:"Beaver Mountain",                 lat:41.9683, lng:-111.5325, months:[1,2,12,6,7,8,9,10], accessibility:"", notes:"Ski area in winter, alpine in summer", type:"outdoor" },
+  { id:"blacksmith-fork-canyon",   name:"Blacksmith Fork Canyon",          lat:41.6011, lng:-111.7497, months:M.WARM,          accessibility:"", notes:"East of Hyrum",                                  type:"outdoor" },
+  { id:"main-street-logan",        name:"Main Street Logan",               lat:41.7370, lng:-111.8338, months:M.ALL,           accessibility:"", notes:"Downtown Logan",                                type:"urban"   },
+  { id:"jardine-juniper-trail",    name:"Jardine Juniper Trail",           lat:41.9119, lng:-111.5683, months:M.HIKE,          accessibility:"", notes:"Logan Canyon trail",                            type:"outdoor" },
+  { id:"mantua-poppy-field",       name:"Mantua Poppy Field",              lat:41.4994, lng:-111.9394, months:[5,6],           accessibility:"", notes:"Poppies May–June",                              type:"outdoor" },
+
+  // ---- OGDEN ----
+  { id:"ogden-botanical-gardens",  name:"Ogden Botanical Gardens",         lat:41.2210, lng:-111.9730, months:M.WARM,          accessibility:"", notes:"",                                              type:"outdoor" },
+  { id:"beus-pond",                name:"Beus Pond",                       lat:41.1789, lng:-111.9551, months:[3,4,5,6,7,8,9,10,11], accessibility:"", notes:"",                                  type:"outdoor" },
+  { id:"antelope-island",          name:"Antelope Island",                 lat:41.0581, lng:-112.2342, months:[1,2,3,4,5,9,10,11,12], accessibility:"", notes:"Avoid June–August (bugs + heat)", type:"outdoor" },
+  { id:"farmington-pond",          name:"Farmington Pond",                 lat:40.9889, lng:-111.8966, months:[3,4,5,6,7,8,9,10,11], accessibility:"", notes:"",                                  type:"outdoor" },
+  { id:"kays-creek-parkway",       name:"Kays Creek Parkway",              lat:41.0691, lng:-111.9572, months:M.WARM,          accessibility:"", notes:"Layton trail",                                   type:"outdoor" },
+  { id:"gsl-shorelands-preserve",  name:"Great Salt Lake Shoreline Preserves", lat:41.0017, lng:-112.0027, months:[3,4,5,9,10,11], accessibility:"", notes:"Layton",                              type:"outdoor" },
+  { id:"fruit-heights-orchard",    name:"Fruit Heights Apple Orchard",     lat:41.0244, lng:-111.9097, months:[4,8,9,10],      accessibility:"", notes:"April for blossoms, Aug–Oct for apples",       type:"outdoor" },
+  { id:"bountiful-pond",           name:"Bountiful Pond",                  lat:40.8763, lng:-111.9111, months:[3,4,5,6,7,8,9,10,11], accessibility:"", notes:"",                                  type:"outdoor" },
+  { id:"mueller-park",             name:"Mueller Park",                    lat:40.8896, lng:-111.8459, months:M.WARM,          accessibility:"", notes:"Bountiful trail",                                type:"outdoor" },
+
+  // ---- SALT LAKE ----
+  { id:"lavender-hive",            name:"The Lavender Hive",               lat:40.6855, lng:-112.3052, months:[6,7],           accessibility:"", notes:"Lavender peaks late June through July",          type:"outdoor" },
+  { id:"rowleys-red-barn",         name:"Rowley's Red Barn",               lat:39.9728, lng:-111.7908, months:[8,9,10],        accessibility:"", notes:"Sunflowers August, pumpkins Sept–Oct",          type:"outdoor" },
+  { id:"great-saltair",            name:"Great Saltair",                   lat:40.7634, lng:-112.2052, months:M.ALL,           accessibility:"", notes:"Concert venue + iconic dome",                    type:"outdoor" },
+  { id:"albion-basin",             name:"Albion Basin",                    lat:40.5783, lng:-111.6225, months:[7,8,9],         accessibility:"", notes:"Wildflowers peak mid-July; closed in winter",   type:"outdoor" },
+  { id:"noir-noir-studio",         name:"Noire Noir Studio",               lat:40.7608, lng:-111.8910, months:M.ALL,           accessibility:"", notes:"Indoor studio (placeholder coords)",             type:"studio"  },
+  { id:"jordan-pines-campground",  name:"Jordan Pines Campground",         lat:40.6383, lng:-111.6592, months:M.ALPINE,        accessibility:"", notes:"Big Cottonwood Canyon",                          type:"outdoor" },
+  { id:"tunnel-springs-park",      name:"Tunnel Springs Park",             lat:40.8703, lng:-111.9290, months:[3,4,5,6,7,8,9,10,11], accessibility:"", notes:"North Salt Lake",                    type:"outdoor" },
+  { id:"little-dell-reservoir",    name:"Little Dell Reservoir",           lat:40.7951, lng:-111.6938, months:M.WARM,          accessibility:"", notes:"Parleys Canyon",                                  type:"outdoor" },
+  { id:"utah-state-capitol",       name:"Utah State Capitol",              lat:40.7774, lng:-111.8881, months:M.ALL,           accessibility:"", notes:"Cherry blossoms peak in April",                  type:"urban"   },
+  { id:"grassy-stansbury-park",    name:"Grassy Field at Stansbury Park",  lat:40.6385, lng:-112.2952, months:M.WARM,          accessibility:"", notes:"Tooele",                                          type:"outdoor" },
+  { id:"alpine-poppies",           name:"Alpine Poppies",                  lat:40.4537, lng:-111.7763, months:[5,6],           accessibility:"", notes:"Poppy field; May–June",                          type:"outdoor" },
+
+  // ---- PROVO ----
+  { id:"provo-apple-orchards",     name:"Provo Apple Orchards",            lat:40.2338, lng:-111.6585, months:[4,8,9,10],      accessibility:"", notes:"Blossoms April; apples late summer/fall",         type:"outdoor" },
+  { id:"buffalo-peak",             name:"Buffalo Peak",                    lat:40.0888, lng:-111.4711, months:[7,8,9],         accessibility:"", notes:"Hobble Creek Canyon — July–September",            type:"outdoor" },
+  { id:"bridal-veil-falls",        name:"Bridal Veil Falls Trailhead",     lat:40.3454, lng:-111.6043, months:M.ALL,           accessibility:"", notes:"Provo Canyon — frozen falls in winter",           type:"outdoor" },
+  { id:"tibble-fork-reservoir",    name:"Tibble Fork Reservoir",           lat:40.4881, lng:-111.6383, months:M.HIKE,          accessibility:"", notes:"American Fork Canyon",                             type:"outdoor" },
+  { id:"jolleys-ranch",            name:"Jolley's Ranch",                  lat:40.1816, lng:-111.5184, months:M.WARM,          accessibility:"", notes:"Springville",                                       type:"outdoor" },
+  { id:"alpine-loop",              name:"Alpine Loop",                     lat:40.4830, lng:-111.6094, months:M.ALPINE,        accessibility:"", notes:"Scenic drive — closed Nov–May",                    type:"outdoor" },
+  { id:"big-springs-park",         name:"Big Springs Park",                lat:40.3306, lng:-111.5670, months:M.WARM,          accessibility:"", notes:"South Fork Provo Canyon",                          type:"outdoor" },
+  { id:"utah-lake",                name:"Utah Lake",                       lat:40.2360, lng:-111.7361, months:[3,4,5,6,7,8,9,10,11], accessibility:"", notes:"Utah Lake State Park",                 type:"outdoor" },
+  { id:"varsa-studio",             name:"Varsa Studio",                    lat:40.2338, lng:-111.6585, months:M.ALL,           accessibility:"", notes:"Indoor studio (placeholder coords)",                type:"studio"  },
+  { id:"diamond-fork-rolling-hills",name:"Diamond Fork Rolling Hills",     lat:40.0900, lng:-111.3960, months:[4,5,6,9,10],    accessibility:"", notes:"Green hills late spring/early summer; fall colors",type:"outdoor" },
+  { id:"timpanogos-trailhead",     name:"Timpanogos Trailhead",            lat:40.4318, lng:-111.6383, months:M.ALPINE,        accessibility:"", notes:"Timpooneke",                                        type:"outdoor" },
+  { id:"nelson-grove-park-orem",   name:"Nelson Grove Park",               lat:40.3194, lng:-111.7000, months:[3,4,5,6,7,8,9,10,11], accessibility:"", notes:"Orem",                              type:"outdoor" },
+  { id:"mona-pond",                name:"Mona Pond",                       lat:39.8442, lng:-111.8597, months:M.WARM,          accessibility:"", notes:"Mona Reservoir",                                    type:"outdoor" },
+  { id:"mirror-lake-payson",       name:"Mirror Lake (Payson)",            lat:39.9482, lng:-111.5950, months:M.ALPINE,        accessibility:"", notes:"Payson Lakes — verify exact lake",                  type:"outdoor" },
+  { id:"little-sahara",            name:"Little Sahara Sand Dunes",        lat:39.7000, lng:-112.2200, months:[3,4,5,9,10,11], accessibility:"", notes:"~70mi from Provo — worth the drive",            type:"outdoor" },
+
+  // ---- EAGLE MOUNTAIN ----
+  { id:"loft-studio-lehi",         name:"The Loft Studio",                 lat:40.3916, lng:-111.8508, months:M.ALL,           accessibility:"", notes:"Lehi indoor studio (placeholder coords)",          type:"studio"  },
+  { id:"cherry-hill-farms",        name:"Cherry Hill Farms",               lat:39.9728, lng:-111.7908, months:[8,9,10],        accessibility:"", notes:"Santaquin",                                          type:"outdoor" },
+  { id:"eagle-mountain-field",     name:"Eagle Mountain Field",            lat:40.3144, lng:-112.0114, months:M.WARM,          accessibility:"", notes:"Open field — placeholder coords",                  type:"outdoor" },
+  { id:"brightwood-studios",       name:"Brightwood Studios",              lat:40.3766, lng:-111.7958, months:M.ALL,           accessibility:"", notes:"American Fork indoor studio (placeholder coords)", type:"studio"  },
+  { id:"cornbellys",               name:"Cornbelly's Sunflower Fields",    lat:40.4341, lng:-111.8861, months:[8,9,10],        accessibility:"", notes:"Thanksgiving Point. Sunflowers Aug–Sept",          type:"outdoor" },
+  { id:"tulip-festival",           name:"Tulip Festival",                  lat:40.4341, lng:-111.9011, months:[4,5],           accessibility:"", notes:"Ashton Gardens at Thanksgiving Point",              type:"outdoor" },
+
+  // ---- PARK CITY / HEBER ----
+  { id:"blue-canyon-farm",         name:"Blue Canyon Farm",                lat:40.5141, lng:-111.4133, months:M.WARM,          accessibility:"", notes:"Heber",                                              type:"outdoor" },
+  { id:"ice-castles-midway",       name:"Utah Ice Castles",                lat:40.5118, lng:-111.4763, months:[12,1,2],        accessibility:"", notes:"Winter only Jan–Feb. Location varies year to year", type:"outdoor" },
+  { id:"mcpolin-barn",             name:"McPolin Barn",                    lat:40.6778, lng:-111.5302, months:M.ALL,           accessibility:"", notes:"Iconic white barn at entrance to Park City",        type:"outdoor" },
+  { id:"silver-creek-lake",        name:"Silver Creek Lake",               lat:40.7034, lng:-111.4937, months:M.WARM,          accessibility:"", notes:"Park City",                                          type:"outdoor" },
+
+  // ---- ST GEORGE ----
+  { id:"tonaquint-nature-center",  name:"Tonaquint Nature Center",         lat:37.0871, lng:-113.6055, months:M.STG,           accessibility:"", notes:"Hot Jun–Aug — sunrise only those months",          type:"outdoor" },
+  { id:"hela-seegmiller-farm",     name:"Hela Seegmiller Historic Farm",   lat:37.0980, lng:-113.6080, months:M.STG,           accessibility:"", notes:"St George",                                          type:"outdoor" },
+  { id:"kirtland-fields",          name:"Kirtland Fields",                 lat:37.0965, lng:-113.5684, months:M.STG,           accessibility:"", notes:"VERIFY: which Kirtland field/park",                  type:"outdoor" },
+  { id:"snow-canyon-petrified",    name:"Snow Canyon Petrified Sand Dunes",lat:37.2070, lng:-113.6403, months:M.STG,           accessibility:"", notes:"",                                                    type:"outdoor" },
+  { id:"white-rocks-snow-canyon",  name:"White Rocks at Snow Canyon",      lat:37.2150, lng:-113.6300, months:M.STG,           accessibility:"", notes:"",                                                    type:"outdoor" },
+  { id:"fire-lake-park",           name:"Fire Lake Park",                  lat:37.0844, lng:-113.6019, months:M.STG,           accessibility:"", notes:"St George",                                           type:"outdoor" },
+  { id:"sand-hollow",              name:"Sand Hollow State Park",          lat:37.1311, lng:-113.3800, months:M.STG,           accessibility:"", notes:"Hurricane",                                           type:"outdoor" },
+  { id:"virgin-river",             name:"Virgin River",                    lat:37.0945, lng:-113.5800, months:M.STG,           accessibility:"", notes:"St George area",                                      type:"outdoor" },
+  { id:"kayenta",                  name:"Kayenta",                         lat:37.1572, lng:-113.6850, months:M.STG,           accessibility:"", notes:"Kayenta Art Village, Ivins",                          type:"outdoor" },
+  { id:"dixie-rock",               name:"Dixie Rock / Sugarloaf",          lat:37.1156, lng:-113.5806, months:M.STG,           accessibility:"", notes:"In Pioneer Park",                                     type:"outdoor" },
+  { id:"the-gorge",                name:"The Gorge",                       lat:37.1100, lng:-113.5700, months:M.STG,           accessibility:"", notes:"VERIFY: which gorge",                                 type:"outdoor" },
+  { id:"white-dome-preserve",      name:"White Dome Nature Preserve",      lat:37.0708, lng:-113.5950, months:M.STG,           accessibility:"", notes:"",                                                    type:"outdoor" },
+  { id:"warner-valley",            name:"Warner Valley",                   lat:37.0530, lng:-113.4130, months:M.STG,           accessibility:"", notes:"Washington county",                                   type:"outdoor" },
+  { id:"woods-ranch",              name:"Woods Ranch",                     lat:37.6120, lng:-112.8900, months:M.HIKE,          accessibility:"", notes:"Cedar City — higher elevation, summer-friendly",    type:"outdoor" },
+  { id:"the-photo-loft",           name:"The Photo Loft",                  lat:37.1042, lng:-113.5780, months:M.ALL,           accessibility:"", notes:"St George (placeholder coords — studio)",            type:"studio"  },
+  { id:"white-space-studios",      name:"White Space Studios",             lat:37.1300, lng:-113.6536, months:M.ALL,           accessibility:"", notes:"Santa Clara (placeholder coords — studio)",          type:"studio"  },
+  { id:"pioneer-park-stgeorge",    name:"Pioneer Park (St. George)",       lat:37.1167, lng:-113.5806, months:M.STG,           accessibility:"", notes:"",                                                    type:"outdoor" }
+];
+
+const STATES = [
+  ["UT","Utah"],
+  ["AL","Alabama"],["AK","Alaska"],["AZ","Arizona"],["AR","Arkansas"],["CA","California"],["CO","Colorado"],["CT","Connecticut"],
+  ["DE","Delaware"],["FL","Florida"],["GA","Georgia"],["HI","Hawaii"],["ID","Idaho"],["IL","Illinois"],["IN","Indiana"],["IA","Iowa"],
+  ["KS","Kansas"],["KY","Kentucky"],["LA","Louisiana"],["ME","Maine"],["MD","Maryland"],["MA","Massachusetts"],["MI","Michigan"],
+  ["MN","Minnesota"],["MS","Mississippi"],["MO","Missouri"],["MT","Montana"],["NE","Nebraska"],["NV","Nevada"],["NH","New Hampshire"],
+  ["NJ","New Jersey"],["NM","New Mexico"],["NY","New York"],["NC","North Carolina"],["ND","North Dakota"],["OH","Ohio"],["OK","Oklahoma"],
+  ["OR","Oregon"],["PA","Pennsylvania"],["RI","Rhode Island"],["SC","South Carolina"],["SD","South Dakota"],["TN","Tennessee"],
+  ["TX","Texas"],["VT","Vermont"],["VA","Virginia"],["WA","Washington"],["WV","West Virginia"],["WI","Wisconsin"],["WY","Wyoming"]
+];
+
+const DRIVE_OPTS = [
+  { mins:15, label:"15 min", sub:"close to home" },
+  { mins:30, label:"30 min", sub:"a quick trip" },
+  { mins:45, label:"45 min", sub:"happy to drive" },
+  { mins:60, label:"1 hour", sub:"adventure ready" },
+  { mins:90, label:"1.5 hrs", sub:"go anywhere" }
+];
+
+// ============================================================================
+// STATE
+// ============================================================================
+const flow = {
+  step: 1,
+  state: null,
+  city: null,
+  cityCoords: null,
+  driveMins: null,
+  month: null,           // 1–12
+  pickedLocation: null,
+  termsAccepted: false
+};
+
+let map = null;
+let markers = [];
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+function haversineMiles(a, b) {
+  const R = 3959;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLon = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat), lat2 = toRad(b.lat);
+  const x = Math.sin(dLat/2)**2 + Math.sin(dLon/2)**2 * Math.cos(lat1) * Math.cos(lat2);
+  return 2 * R * Math.asin(Math.sqrt(x));
+}
+
+// Estimate drive time. Production version uses Google Maps Distance Matrix.
+function estimateDriveMinutes(a, b) {
+  const miles = haversineMiles(a, b);
+  return (miles * 1.4) / 50 * 60;  // 1.4× fudge for non-straight roads, 50mph avg
+}
+
+async function geocodeCity(query) {
+  const url = "https://nominatim.openstreetmap.org/search?" + new URLSearchParams({
+    q: query + ", Utah, USA", format: "json", limit: 1
+  });
+  try {
+    const r = await fetch(url, { headers: { "Accept-Language": "en" } });
+    const data = await r.json();
+    if (data.length) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+  } catch (e) {
+    console.error(e);
+  }
+  return null;
+}
+
+function $(sel) { return document.querySelector(sel); }
+
+function updateProgress() {
+  $("#step-num").textContent = flow.step;
+}
+
+// ============================================================================
+// STEPS
+// ============================================================================
+function renderStep1() {
+  flow.step = 1; updateProgress();
+  $("#stage").className = "stage";
+  $("#stage").innerHTML = `
+    <div class="step">
+      <h1>Pick Your Location</h1>
+      <p>Welcome! Now that you're booked, let's find the perfect spot for your shoot. This will take about 30 seconds.</p>
+      <p class="label">First — what state are you in?</p>
+      <select id="state-select">
+        <option value="">Choose a state…</option>
+        ${STATES.map(([code,name]) => `<option value="${code}"${flow.state===code?" selected":""}>${name}${code==="UT"?"":" (coming soon)"}</option>`).join("")}
+      </select>
+      <div class="btn-row">
+        <span></span>
+        <button class="btn" id="next-1" ${flow.state==="UT"?"":"disabled"}>Continue →</button>
+      </div>
+    </div>`;
+  $("#state-select").addEventListener("change", e => {
+    const v = e.target.value;
+    flow.state = v;
+    $("#next-1").disabled = (v !== "UT");
+    $("#next-1").textContent = (v && v !== "UT") ? "Only Utah for now" : "Continue →";
+  });
+  $("#next-1").addEventListener("click", () => renderStep2());
+}
+
+function renderStep2() {
+  flow.step = 2; updateProgress();
+  $("#stage").className = "stage";
+  $("#stage").innerHTML = `
+    <div class="step">
+      <h1>Where in Utah?</h1>
+      <p>Type the city or zip code closest to you. We'll show you spots within your driving range.</p>
+      <p class="label">Your city or zip</p>
+      <input class="input" id="city-input" placeholder="e.g. Provo, 84601, or Park City" autofocus value="${flow.city||""}" />
+      <p class="small-note" id="city-status"></p>
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="back-2">← Back</button>
+        <button class="btn" id="next-2" ${flow.city?"":"disabled"}>Continue →</button>
+      </div>
+    </div>`;
+  const input = $("#city-input");
+  const next = $("#next-2");
+  input.addEventListener("input", () => {
+    next.disabled = input.value.trim().length < 2;
+    flow.cityCoords = null;
+    $("#city-status").textContent = "";
+  });
+  input.addEventListener("keydown", e => { if (e.key === "Enter" && !next.disabled) next.click(); });
+  $("#back-2").addEventListener("click", () => renderStep1());
+  next.addEventListener("click", async () => {
+    flow.city = input.value.trim();
+    next.disabled = true;
+    next.textContent = "Locating…";
+    $("#city-status").textContent = "Finding your city…";
+    const coords = await geocodeCity(flow.city);
+    if (!coords) {
+      $("#city-status").textContent = "Hmm, couldn't find that city. Try the zip code, or a nearby town.";
+      next.disabled = false;
+      next.textContent = "Continue →";
+      return;
+    }
+    flow.cityCoords = coords;
+    renderStep3();
+  });
+}
+
+function renderStep3() {
+  flow.step = 3; updateProgress();
+  $("#stage").className = "stage";
+  $("#stage").innerHTML = `
+    <div class="step">
+      <h1>How far are you willing to drive?</h1>
+      <p>We'll only show locations within this drive time of <strong>${flow.city}</strong>.</p>
+      <div class="options" id="drive-opts">
+        ${DRIVE_OPTS.map(o => `
+          <button class="option ${flow.driveMins===o.mins?"active":""}" data-mins="${o.mins}">
+            <div class="o-label">${o.label}</div>
+            <div class="o-sub">${o.sub}</div>
+          </button>`).join("")}
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="back-3">← Back</button>
+        <button class="btn" id="next-3" ${flow.driveMins?"":"disabled"}>Continue →</button>
+      </div>
+    </div>`;
+  document.querySelectorAll("#drive-opts .option").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#drive-opts .option").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      flow.driveMins = parseInt(btn.dataset.mins, 10);
+      $("#next-3").disabled = false;
+    });
+  });
+  $("#back-3").addEventListener("click", () => renderStep2());
+  $("#next-3").addEventListener("click", () => renderStep4());
+}
+
+function renderStep4() {
+  flow.step = 4; updateProgress();
+  $("#stage").className = "stage";
+  $("#stage").innerHTML = `
+    <div class="step">
+      <h1>What month is your shoot?</h1>
+      <p>Some spots are stunning year-round. Others (like the Mantua poppies or Tulip Festival) only work in specific weeks. Pick the month you're shooting.</p>
+      <div class="options options-month" id="month-opts">
+        ${MONTH_NAMES.map((m,i) => `
+          <button class="option ${flow.month===i+1?"active":""}" data-m="${i+1}">
+            <div class="o-label">${MONTH_SHORT[i]}</div>
+            <div class="o-sub">${m.toLowerCase()}</div>
+          </button>`).join("")}
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" id="back-4">← Back</button>
+        <button class="btn" id="next-4" ${flow.month?"":"disabled"}>Show me the map →</button>
+      </div>
+    </div>`;
+  document.querySelectorAll("#month-opts .option").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("#month-opts .option").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      flow.month = parseInt(btn.dataset.m, 10);
+      $("#next-4").disabled = false;
+    });
+  });
+  $("#back-4").addEventListener("click", () => renderStep3());
+  $("#next-4").addEventListener("click", () => renderStep5());
+}
+
+function renderStep5() {
+  flow.step = 5; updateProgress();
+  $("#stage").className = "stage stage--wide";
+  $("#stage").innerHTML = `
+    <div class="step">
+      <h1 style="text-align:center;">Pick your spot</h1>
+
+      <div class="filter-bar">
+        <div class="filter-pill" id="city-pill">
+          <span class="pill-key">From</span>
+          <span class="pill-val">${flow.city}</span>
+          <span class="pill-edit" id="change-city">change</span>
+        </div>
+        <div class="filter-pill">
+          <span class="pill-key">Drive</span>
+          <select id="drive-select">
+            ${DRIVE_OPTS.map(o => `<option value="${o.mins}" ${flow.driveMins===o.mins?"selected":""}>${o.label}</option>`).join("")}
+          </select>
+        </div>
+        <div class="filter-pill">
+          <span class="pill-key">Month</span>
+          <select id="month-select">
+            ${MONTH_NAMES.map((m,i) => `<option value="${i+1}" ${flow.month===i+1?"selected":""}>${m}</option>`).join("")}
+          </select>
+        </div>
+      </div>
+
+      <div class="map-wrap">
+        <div id="map"></div>
+        <div class="results">
+          <h3>Locations</h3>
+          <div class="result-count" id="result-count"></div>
+          <div id="loc-list"></div>
+        </div>
+      </div>
+      <div class="btn-row" style="max-width:720px; margin:28px auto 0;">
+        <button class="btn btn-secondary" id="back-5">← Change month</button>
+        <button class="btn" id="next-5" disabled>Pick this location →</button>
+      </div>
+    </div>`;
+
+  // Init map (only once per render)
+  map = L.map("map", { zoomControl: true });
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "© OpenStreetMap",
+    maxZoom: 18
+  }).addTo(map);
+
+  refreshMap();
+
+  // Wire up inline filter controls
+  $("#change-city").addEventListener("click", () => renderStep2());
+  $("#drive-select").addEventListener("change", e => {
+    flow.driveMins = parseInt(e.target.value, 10);
+    flow.pickedLocation = null;
+    $("#next-5").disabled = true;
+    refreshMap();
+  });
+  $("#month-select").addEventListener("change", e => {
+    flow.month = parseInt(e.target.value, 10);
+    flow.pickedLocation = null;
+    $("#next-5").disabled = true;
+    refreshMap();
+  });
+
+  $("#back-5").addEventListener("click", () => renderStep4());
+  $("#next-5").addEventListener("click", () => {
+    if (flow.pickedLocation) renderStep6();
+  });
+}
+
+function refreshMap() {
+  const filtered = LOCATIONS
+    .map(loc => ({
+      ...loc,
+      driveMins: estimateDriveMinutes(flow.cityCoords, loc),
+      miles: haversineMiles(flow.cityCoords, loc)
+    }))
+    .filter(loc => loc.months.includes(flow.month))
+    .filter(loc => loc.driveMins <= flow.driveMins)
+    .sort((a,b) => a.driveMins - b.driveMins);
+
+  // Update count + list
+  $("#result-count").textContent =
+    `${filtered.length} ${filtered.length === 1 ? "spot" : "spots"} within ${flow.driveMins} min in ${MONTH_NAMES[flow.month-1]}`;
+  $("#loc-list").innerHTML = filtered.length === 0
+    ? `<p style="font-size:0.9rem;">No spots match these filters yet. Try a longer drive time or a different month.</p>`
+    : filtered.map(loc => `
+        <div class="loc-card" data-id="${loc.id}">
+          <div class="loc-name">${loc.name}</div>
+          <div class="loc-meta">~${Math.round(loc.driveMins)} min · ${Math.round(loc.miles)} mi · ${loc.type}</div>
+          ${loc.accessibility ? `<div class="loc-access">${loc.accessibility}</div>` : ""}
+          ${loc.notes ? `<div class="loc-notes">${loc.notes}</div>` : ""}
+        </div>`).join("");
+
+  // Clear and re-add markers
+  markers.forEach(m => map.removeLayer(m.marker));
+  markers = [];
+
+  const userIcon = L.divIcon({
+    className: "user-pin",
+    html: `<div style="width:14px;height:14px;background:#c89898;border:3px solid white;border-radius:50%;box-shadow:0 0 0 2px #c89898;"></div>`,
+    iconSize: [20,20], iconAnchor: [10,10]
+  });
+  const userMarker = L.marker([flow.cityCoords.lat, flow.cityCoords.lng], { icon: userIcon })
+    .addTo(map).bindPopup(`<strong>You: ${flow.city}</strong>`);
+  markers.push({ id: "_user", marker: userMarker });
+
+  if (filtered.length === 0) {
+    map.setView([flow.cityCoords.lat, flow.cityCoords.lng], 9);
+  } else {
+    const bounds = L.latLngBounds([[flow.cityCoords.lat, flow.cityCoords.lng]]);
+    filtered.forEach(loc => {
+      const marker = L.marker([loc.lat, loc.lng]).addTo(map);
+      marker.bindPopup(`
+        <div class="popup-photo">${loc.name}<br/><em style="font-size:0.7rem;">photo placeholder</em></div>
+        <div class="popup-name">${loc.name}</div>
+        <div class="popup-meta">~${Math.round(loc.driveMins)} min · ${Math.round(loc.miles)} mi from ${flow.city}</div>
+        ${loc.accessibility ? `<div class="popup-access">♿ ${loc.accessibility}</div>` : ""}
+        <button class="btn btn-small" onclick="window._pickLocation('${loc.id}')">Pick this spot</button>
+      `);
+      marker.on("click", () => selectLocation(loc.id));
+      markers.push({ id: loc.id, marker, loc });
+      bounds.extend([loc.lat, loc.lng]);
+    });
+    map.fitBounds(bounds, { padding: [40,40] });
+  }
+
+  document.querySelectorAll(".loc-card").forEach(card => {
+    card.addEventListener("click", () => selectLocation(card.dataset.id));
+  });
+
+  window._pickLocation = (id) => {
+    const m = markers.find(m => m.id === id);
+    if (m) flow.pickedLocation = m.loc;
+    renderStep6();
+  };
+}
+
+function selectLocation(id) {
+  const m = markers.find(m => m.id === id);
+  if (!m) return;
+  flow.pickedLocation = m.loc;
+  document.querySelectorAll(".loc-card").forEach(c => c.classList.toggle("active", c.dataset.id === id));
+  m.marker.openPopup();
+  map.panTo([m.loc.lat, m.loc.lng]);
+  $("#next-5").disabled = false;
+}
+
+function renderStep6() {
+  flow.step = 5; updateProgress();
+  $("#stage").className = "stage";
+  const loc = flow.pickedLocation;
+  $("#stage").innerHTML = `
+    <div class="step">
+      <div class="card">
+        <h2>Good choice! ✨</h2>
+        <p>Your Calendly booking is now updated with <strong>${loc.name}</strong>.</p>
+        <p style="color:var(--ink); font-size:1rem;">
+          <span class="pill">${loc.type}</span>
+          <span class="pill">${MONTH_NAMES[flow.month-1]}</span>
+          <span class="pill">~${Math.round(loc.driveMins)} min from ${flow.city}</span>
+        </p>
+        ${loc.accessibility ? `<p style="font-size:0.9rem; color:var(--sage-dk);">♿ ${loc.accessibility}</p>` : ""}
+        ${loc.notes ? `<p style="font-style:italic; font-size:0.9rem;">${loc.notes}</p>` : ""}
+        <button class="change-location-btn" id="change-loc">← Change my location</button>
+      </div>
+
+      <div class="card" style="margin-top: 20px;">
+        <h2>Last step — secure your booking</h2>
+        <p>Pay your <strong>$50 deposit</strong> to lock in your spot. The remainder is due when you receive your photos.</p>
+
+        <label class="check-row">
+          <input type="checkbox" id="terms" />
+          <span>I agree to the <a href="#" onclick="alert('Contract preview will go here'); return false;">terms &amp; conditions</a> and photoshoot contract.</span>
+        </label>
+
+        <div class="pay-options">
+          <button class="btn stripe-btn" id="pay-stripe" disabled>Pay $50 with Stripe</button>
+        </div>
+        <p class="deposit-note">Once your deposit is paid, you'll get a confirmation text with the location's Google Maps link, parking instructions, and an outfit guide.</p>
+      </div>
+    </div>`;
+
+  $("#change-loc").addEventListener("click", () => renderStep5());
+  $("#terms").addEventListener("change", e => {
+    flow.termsAccepted = e.target.checked;
+    $("#pay-stripe").disabled = !flow.termsAccepted;
+  });
+  $("#pay-stripe").addEventListener("click", () => {
+    alert("This will redirect to your Stripe Payment Link in production.");
+  });
+}
+
+// ============================================================================
+// INIT
+// ============================================================================
+renderStep1();
+</script>
+</body>
+</html>
