@@ -295,105 +295,44 @@
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const MONTH_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-// Reusable month sets (1=Jan, 12=Dec)
-const M = {
-  ALL:    [1,2,3,4,5,6,7,8,9,10,11,12],
-  WARM:   [4,5,6,7,8,9,10],          // April–October
-  HIKE:   [5,6,7,8,9,10],            // May–October
-  ALPINE: [6,7,8,9,10],              // June–October (snow-locked spots)
-  STG:    [9,10,11,12,1,2,3,4,5]     // St George comfort: avoid summer heat
-};
-
 // ============================================================================
-// LOCATION DATA
+// LOCATION DATA — fetched from /api/locations (Airtable-backed)
 // ============================================================================
-const LOCATIONS = [
-  // ---- LOGAN ----
-  { id:"lavender-apple-farm",      name:"The Lavender Apple Farm",         lat:41.7167, lng:-111.9836, months:[6,7],           accessibility:"", notes:"Lavender + apple farm, Mendon area",            type:"outdoor" },
-  { id:"tonys-grove",              name:"Tony's Grove",                    lat:41.8932, lng:-111.6486, months:M.ALPINE,        accessibility:"", notes:"Alpine lake in Logan Canyon",                   type:"outdoor" },
-  { id:"rattlesnake-trail",        name:"Rattlesnake Trail",               lat:41.7531, lng:-111.7497, months:M.WARM,          accessibility:"", notes:"Logan Canyon",                                   type:"outdoor" },
-  { id:"temple-fork",              name:"Temple Fork",                     lat:41.8260, lng:-111.5645, months:M.HIKE,          accessibility:"", notes:"Logan Canyon",                                   type:"outdoor" },
-  { id:"wellsville-pond",          name:"Wellsville Pond",                 lat:41.6322, lng:-111.9405, months:[3,4,5,6,7,8,9,10,11], accessibility:"", notes:"",                                  type:"outdoor" },
-  { id:"beaver-mountain",          name:"Beaver Mountain",                 lat:41.9683, lng:-111.5325, months:[1,2,12,6,7,8,9,10], accessibility:"", notes:"Ski area in winter, alpine in summer", type:"outdoor" },
-  { id:"blacksmith-fork-canyon",   name:"Blacksmith Fork Canyon",          lat:41.6011, lng:-111.7497, months:M.WARM,          accessibility:"", notes:"East of Hyrum",                                  type:"outdoor" },
-  { id:"main-street-logan",        name:"Main Street Logan",               lat:41.7370, lng:-111.8338, months:M.ALL,           accessibility:"", notes:"Downtown Logan",                                type:"urban"   },
-  { id:"jardine-juniper-trail",    name:"Jardine Juniper Trail",           lat:41.9119, lng:-111.5683, months:M.HIKE,          accessibility:"", notes:"Logan Canyon trail",                            type:"outdoor" },
-  { id:"mantua-poppy-field",       name:"Mantua Poppy Field",              lat:41.4994, lng:-111.9394, months:[5,6],           accessibility:"", notes:"Poppies May–June",                              type:"outdoor" },
+let LOCATIONS = [];
 
-  // ---- OGDEN ----
-  { id:"ogden-botanical-gardens",  name:"Ogden Botanical Gardens",         lat:41.2210, lng:-111.9730, months:M.WARM,          accessibility:"", notes:"",                                              type:"outdoor" },
-  { id:"beus-pond",                name:"Beus Pond",                       lat:41.1789, lng:-111.9551, months:[3,4,5,6,7,8,9,10,11], accessibility:"", notes:"",                                  type:"outdoor" },
-  { id:"antelope-island",          name:"Antelope Island",                 lat:41.0581, lng:-112.2342, months:[1,2,3,4,5,9,10,11,12], accessibility:"", notes:"Avoid June–August (bugs + heat)", type:"outdoor" },
-  { id:"farmington-pond",          name:"Farmington Pond",                 lat:40.9889, lng:-111.8966, months:[3,4,5,6,7,8,9,10,11], accessibility:"", notes:"",                                  type:"outdoor" },
-  { id:"kays-creek-parkway",       name:"Kays Creek Parkway",              lat:41.0691, lng:-111.9572, months:M.WARM,          accessibility:"", notes:"Layton trail",                                   type:"outdoor" },
-  { id:"gsl-shorelands-preserve",  name:"Great Salt Lake Shoreline Preserves", lat:41.0017, lng:-112.0027, months:[3,4,5,9,10,11], accessibility:"", notes:"Layton",                              type:"outdoor" },
-  { id:"fruit-heights-orchard",    name:"Fruit Heights Apple Orchard",     lat:41.0244, lng:-111.9097, months:[4,8,9,10],      accessibility:"", notes:"April for blossoms, Aug–Oct for apples",       type:"outdoor" },
-  { id:"bountiful-pond",           name:"Bountiful Pond",                  lat:40.8763, lng:-111.9111, months:[3,4,5,6,7,8,9,10,11], accessibility:"", notes:"",                                  type:"outdoor" },
-  { id:"mueller-park",             name:"Mueller Park",                    lat:40.8896, lng:-111.8459, months:M.WARM,          accessibility:"", notes:"Bountiful trail",                                type:"outdoor" },
+const dataPromise = loadLocations();
 
-  // ---- SALT LAKE ----
-  { id:"lavender-hive",            name:"The Lavender Hive",               lat:40.6855, lng:-112.3052, months:[6,7],           accessibility:"", notes:"Lavender peaks late June through July",          type:"outdoor" },
-  { id:"rowleys-red-barn",         name:"Rowley's Red Barn",               lat:39.9728, lng:-111.7908, months:[8,9,10],        accessibility:"", notes:"Sunflowers August, pumpkins Sept–Oct",          type:"outdoor" },
-  { id:"great-saltair",            name:"Great Saltair",                   lat:40.7634, lng:-112.2052, months:M.ALL,           accessibility:"", notes:"Concert venue + iconic dome",                    type:"outdoor" },
-  { id:"albion-basin",             name:"Albion Basin",                    lat:40.5783, lng:-111.6225, months:[7,8,9],         accessibility:"", notes:"Wildflowers peak mid-July; closed in winter",   type:"outdoor" },
-  { id:"noir-noir-studio",         name:"Noire Noir Studio",               lat:40.7608, lng:-111.8910, months:M.ALL,           accessibility:"", notes:"Indoor studio (placeholder coords)",             type:"studio"  },
-  { id:"jordan-pines-campground",  name:"Jordan Pines Campground",         lat:40.6383, lng:-111.6592, months:M.ALPINE,        accessibility:"", notes:"Big Cottonwood Canyon",                          type:"outdoor" },
-  { id:"tunnel-springs-park",      name:"Tunnel Springs Park",             lat:40.8703, lng:-111.9290, months:[3,4,5,6,7,8,9,10,11], accessibility:"", notes:"North Salt Lake",                    type:"outdoor" },
-  { id:"little-dell-reservoir",    name:"Little Dell Reservoir",           lat:40.7951, lng:-111.6938, months:M.WARM,          accessibility:"", notes:"Parleys Canyon",                                  type:"outdoor" },
-  { id:"utah-state-capitol",       name:"Utah State Capitol",              lat:40.7774, lng:-111.8881, months:M.ALL,           accessibility:"", notes:"Cherry blossoms peak in April",                  type:"urban"   },
-  { id:"grassy-stansbury-park",    name:"Grassy Field at Stansbury Park",  lat:40.6385, lng:-112.2952, months:M.WARM,          accessibility:"", notes:"Tooele",                                          type:"outdoor" },
-  { id:"alpine-poppies",           name:"Alpine Poppies",                  lat:40.4537, lng:-111.7763, months:[5,6],           accessibility:"", notes:"Poppy field; May–June",                          type:"outdoor" },
+async function loadLocations() {
+  try {
+    const r = await fetch("/api/locations");
+    if (!r.ok) throw new Error(`API ${r.status}`);
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    LOCATIONS = data.locations || [];
+    return LOCATIONS;
+  } catch (e) {
+    console.error("Failed to load locations:", e);
+    LOCATIONS = [];
+    return [];
+  }
+}
 
-  // ---- PROVO ----
-  { id:"provo-apple-orchards",     name:"Provo Apple Orchards",            lat:40.2338, lng:-111.6585, months:[4,8,9,10],      accessibility:"", notes:"Blossoms April; apples late summer/fall",         type:"outdoor" },
-  { id:"buffalo-peak",             name:"Buffalo Peak",                    lat:40.0888, lng:-111.4711, months:[7,8,9],         accessibility:"", notes:"Hobble Creek Canyon — July–September",            type:"outdoor" },
-  { id:"bridal-veil-falls",        name:"Bridal Veil Falls Trailhead",     lat:40.3454, lng:-111.6043, months:M.ALL,           accessibility:"", notes:"Provo Canyon — frozen falls in winter",           type:"outdoor" },
-  { id:"tibble-fork-reservoir",    name:"Tibble Fork Reservoir",           lat:40.4881, lng:-111.6383, months:M.HIKE,          accessibility:"", notes:"American Fork Canyon",                             type:"outdoor" },
-  { id:"jolleys-ranch",            name:"Jolley's Ranch",                  lat:40.1816, lng:-111.5184, months:M.WARM,          accessibility:"", notes:"Springville",                                       type:"outdoor" },
-  { id:"alpine-loop",              name:"Alpine Loop",                     lat:40.4830, lng:-111.6094, months:M.ALPINE,        accessibility:"", notes:"Scenic drive — closed Nov–May",                    type:"outdoor" },
-  { id:"big-springs-park",         name:"Big Springs Park",                lat:40.3306, lng:-111.5670, months:M.WARM,          accessibility:"", notes:"South Fork Provo Canyon",                          type:"outdoor" },
-  { id:"utah-lake",                name:"Utah Lake",                       lat:40.2360, lng:-111.7361, months:[3,4,5,6,7,8,9,10,11], accessibility:"", notes:"Utah Lake State Park",                 type:"outdoor" },
-  { id:"varsa-studio",             name:"Varsa Studio",                    lat:40.2338, lng:-111.6585, months:M.ALL,           accessibility:"", notes:"Indoor studio (placeholder coords)",                type:"studio"  },
-  { id:"diamond-fork-rolling-hills",name:"Diamond Fork Rolling Hills",     lat:40.0900, lng:-111.3960, months:[4,5,6,9,10],    accessibility:"", notes:"Green hills late spring/early summer; fall colors",type:"outdoor" },
-  { id:"timpanogos-trailhead",     name:"Timpanogos Trailhead",            lat:40.4318, lng:-111.6383, months:M.ALPINE,        accessibility:"", notes:"Timpooneke",                                        type:"outdoor" },
-  { id:"nelson-grove-park-orem",   name:"Nelson Grove Park",               lat:40.3194, lng:-111.7000, months:[3,4,5,6,7,8,9,10,11], accessibility:"", notes:"Orem",                              type:"outdoor" },
-  { id:"mona-pond",                name:"Mona Pond",                       lat:39.8442, lng:-111.8597, months:M.WARM,          accessibility:"", notes:"Mona Reservoir",                                    type:"outdoor" },
-  { id:"mirror-lake-payson",       name:"Mirror Lake (Payson)",            lat:39.9482, lng:-111.5950, months:M.ALPINE,        accessibility:"", notes:"Payson Lakes — verify exact lake",                  type:"outdoor" },
-  { id:"little-sahara",            name:"Little Sahara Sand Dunes",        lat:39.7000, lng:-112.2200, months:[3,4,5,9,10,11], accessibility:"", notes:"~70mi from Provo — worth the drive",            type:"outdoor" },
+// True if a location is photographable in the given month.
+// If photos exist, at least one must be tagged for that month.
+// Otherwise, fall back to the location's defaultMonths.
+function isActiveInMonth(loc, month) {
+  if (loc.photos && loc.photos.length > 0) {
+    return loc.photos.some(p => p.months && p.months.includes(month));
+  }
+  return (loc.defaultMonths || []).includes(month);
+}
 
-  // ---- EAGLE MOUNTAIN ----
-  { id:"loft-studio-lehi",         name:"The Loft Studio",                 lat:40.3916, lng:-111.8508, months:M.ALL,           accessibility:"", notes:"Lehi indoor studio (placeholder coords)",          type:"studio"  },
-  { id:"cherry-hill-farms",        name:"Cherry Hill Farms",               lat:39.9728, lng:-111.7908, months:[8,9,10],        accessibility:"", notes:"Santaquin",                                          type:"outdoor" },
-  { id:"eagle-mountain-field",     name:"Eagle Mountain Field",            lat:40.3144, lng:-112.0114, months:M.WARM,          accessibility:"", notes:"Open field — placeholder coords",                  type:"outdoor" },
-  { id:"brightwood-studios",       name:"Brightwood Studios",              lat:40.3766, lng:-111.7958, months:M.ALL,           accessibility:"", notes:"American Fork indoor studio (placeholder coords)", type:"studio"  },
-  { id:"cornbellys",               name:"Cornbelly's Sunflower Fields",    lat:40.4341, lng:-111.8861, months:[8,9,10],        accessibility:"", notes:"Thanksgiving Point. Sunflowers Aug–Sept",          type:"outdoor" },
-  { id:"tulip-festival",           name:"Tulip Festival",                  lat:40.4341, lng:-111.9011, months:[4,5],           accessibility:"", notes:"Ashton Gardens at Thanksgiving Point",              type:"outdoor" },
+// Returns the best photo for the chosen month, or null.
+function getPhotoForMonth(loc, month) {
+  if (!loc.photos || loc.photos.length === 0) return null;
+  return loc.photos.find(p => p.months && p.months.includes(month)) || null;
+}
 
-  // ---- PARK CITY / HEBER ----
-  { id:"blue-canyon-farm",         name:"Blue Canyon Farm",                lat:40.5141, lng:-111.4133, months:M.WARM,          accessibility:"", notes:"Heber",                                              type:"outdoor" },
-  { id:"ice-castles-midway",       name:"Utah Ice Castles",                lat:40.5118, lng:-111.4763, months:[12,1,2],        accessibility:"", notes:"Winter only Jan–Feb. Location varies year to year", type:"outdoor" },
-  { id:"mcpolin-barn",             name:"McPolin Barn",                    lat:40.6778, lng:-111.5302, months:M.ALL,           accessibility:"", notes:"Iconic white barn at entrance to Park City",        type:"outdoor" },
-  { id:"silver-creek-lake",        name:"Silver Creek Lake",               lat:40.7034, lng:-111.4937, months:M.WARM,          accessibility:"", notes:"Park City",                                          type:"outdoor" },
-
-  // ---- ST GEORGE ----
-  { id:"tonaquint-nature-center",  name:"Tonaquint Nature Center",         lat:37.0871, lng:-113.6055, months:M.STG,           accessibility:"", notes:"Hot Jun–Aug — sunrise only those months",          type:"outdoor" },
-  { id:"hela-seegmiller-farm",     name:"Hela Seegmiller Historic Farm",   lat:37.0980, lng:-113.6080, months:M.STG,           accessibility:"", notes:"St George",                                          type:"outdoor" },
-  { id:"kirtland-fields",          name:"Kirtland Fields",                 lat:37.0965, lng:-113.5684, months:M.STG,           accessibility:"", notes:"VERIFY: which Kirtland field/park",                  type:"outdoor" },
-  { id:"snow-canyon-petrified",    name:"Snow Canyon Petrified Sand Dunes",lat:37.2070, lng:-113.6403, months:M.STG,           accessibility:"", notes:"",                                                    type:"outdoor" },
-  { id:"white-rocks-snow-canyon",  name:"White Rocks at Snow Canyon",      lat:37.2150, lng:-113.6300, months:M.STG,           accessibility:"", notes:"",                                                    type:"outdoor" },
-  { id:"fire-lake-park",           name:"Fire Lake Park",                  lat:37.0844, lng:-113.6019, months:M.STG,           accessibility:"", notes:"St George",                                           type:"outdoor" },
-  { id:"sand-hollow",              name:"Sand Hollow State Park",          lat:37.1311, lng:-113.3800, months:M.STG,           accessibility:"", notes:"Hurricane",                                           type:"outdoor" },
-  { id:"virgin-river",             name:"Virgin River",                    lat:37.0945, lng:-113.5800, months:M.STG,           accessibility:"", notes:"St George area",                                      type:"outdoor" },
-  { id:"kayenta",                  name:"Kayenta",                         lat:37.1572, lng:-113.6850, months:M.STG,           accessibility:"", notes:"Kayenta Art Village, Ivins",                          type:"outdoor" },
-  { id:"dixie-rock",               name:"Dixie Rock / Sugarloaf",          lat:37.1156, lng:-113.5806, months:M.STG,           accessibility:"", notes:"In Pioneer Park",                                     type:"outdoor" },
-  { id:"the-gorge",                name:"The Gorge",                       lat:37.1100, lng:-113.5700, months:M.STG,           accessibility:"", notes:"VERIFY: which gorge",                                 type:"outdoor" },
-  { id:"white-dome-preserve",      name:"White Dome Nature Preserve",      lat:37.0708, lng:-113.5950, months:M.STG,           accessibility:"", notes:"",                                                    type:"outdoor" },
-  { id:"warner-valley",            name:"Warner Valley",                   lat:37.0530, lng:-113.4130, months:M.STG,           accessibility:"", notes:"Washington county",                                   type:"outdoor" },
-  { id:"woods-ranch",              name:"Woods Ranch",                     lat:37.6120, lng:-112.8900, months:M.HIKE,          accessibility:"", notes:"Cedar City — higher elevation, summer-friendly",    type:"outdoor" },
-  { id:"the-photo-loft",           name:"The Photo Loft",                  lat:37.1042, lng:-113.5780, months:M.ALL,           accessibility:"", notes:"St George (placeholder coords — studio)",            type:"studio"  },
-  { id:"white-space-studios",      name:"White Space Studios",             lat:37.1300, lng:-113.6536, months:M.ALL,           accessibility:"", notes:"Santa Clara (placeholder coords — studio)",          type:"studio"  },
-  { id:"pioneer-park-stgeorge",    name:"Pioneer Park (St. George)",       lat:37.1167, lng:-113.5806, months:M.STG,           accessibility:"", notes:"",                                                    type:"outdoor" }
-];
 
 const STATES = [
   ["UT","Utah"],
@@ -602,8 +541,28 @@ function renderStep4() {
   $("#next-4").addEventListener("click", () => renderStep5());
 }
 
-function renderStep5() {
+async function renderStep5() {
   flow.step = 5; updateProgress();
+  $("#stage").className = "stage";
+
+  // Show loading state while we wait for Airtable
+  if (!LOCATIONS || LOCATIONS.length === 0) {
+    $("#stage").innerHTML = `
+      <div class="step" style="text-align:center;">
+        <h2>Loading locations…</h2>
+        <p>Fetching the latest spots and photos.</p>
+      </div>`;
+    await dataPromise;
+    if (!LOCATIONS || LOCATIONS.length === 0) {
+      $("#stage").innerHTML = `
+        <div class="step" style="text-align:center;">
+          <h2>Couldn't load locations.</h2>
+          <p>Please refresh in a moment, or contact us if it keeps happening.</p>
+        </div>`;
+      return;
+    }
+  }
+
   $("#stage").className = "stage stage--wide";
   $("#stage").innerHTML = `
     <div class="step">
@@ -680,7 +639,7 @@ function refreshMap() {
       driveMins: estimateDriveMinutes(flow.cityCoords, loc),
       miles: haversineMiles(flow.cityCoords, loc)
     }))
-    .filter(loc => loc.months.includes(flow.month))
+    .filter(loc => isActiveInMonth(loc, flow.month))
     .filter(loc => loc.driveMins <= flow.driveMins)
     .sort((a,b) => a.driveMins - b.driveMins);
 
@@ -716,8 +675,12 @@ function refreshMap() {
     const bounds = L.latLngBounds([[flow.cityCoords.lat, flow.cityCoords.lng]]);
     filtered.forEach(loc => {
       const marker = L.marker([loc.lat, loc.lng]).addTo(map);
+      const photo = getPhotoForMonth(loc, flow.month);
+      const photoHTML = photo
+        ? `<img src="${photo.url}" alt="${(photo.caption || loc.name).replace(/"/g,'&quot;')}" style="width:100%;height:140px;object-fit:cover;border-radius:8px;margin-bottom:10px;" />`
+        : `<div class="popup-photo">${loc.name}<br/><em style="font-size:0.7rem;">no photo yet</em></div>`;
       marker.bindPopup(`
-        <div class="popup-photo">${loc.name}<br/><em style="font-size:0.7rem;">photo placeholder</em></div>
+        ${photoHTML}
         <div class="popup-name">${loc.name}</div>
         <div class="popup-meta">~${Math.round(loc.driveMins)} min · ${Math.round(loc.miles)} mi from ${flow.city}</div>
         ${loc.accessibility ? `<div class="popup-access">♿ ${loc.accessibility}</div>` : ""}
