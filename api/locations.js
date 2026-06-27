@@ -1,4 +1,3 @@
-
 // Vercel serverless function: fetches locations + photos from Airtable
 // and returns clean JSON for the location picker site.
 
@@ -38,7 +37,7 @@ export default async function handler(req, res) {
     }
 
     const [locRecs, photoRecs] = await Promise.all([
-      fetchAll("Locations"),
+      fetchAll("Locations_MERGED2"),
       fetchAll("Photos")
     ]);
 
