@@ -699,8 +699,12 @@ function haversineMiles(a, b) {
   return 2 * R * Math.asin(Math.sqrt(x));
 }
 
-function estimateDriveMins(a, b) {
-  return (haversineMiles(a, b) * 1.4) / 50 * 60;
+function estimateDriveMins(a, b, loc) {
+  // If Airtable has a manual drive time override, use it
+  if (loc && loc.driveTimeMins) return loc.driveTimeMins;
+  // Otherwise estimate: straight-line × road-winding factor ÷ avg speed
+  // Factor 1.7 / 38mph better matches Utah canyon + valley driving vs. old 1.4/50
+  return (haversineMiles(a, b) * 1.7) / 38 * 60;
 }
 
 // Fallback coords used when the geocode API isn't available (e.g. local file preview)
@@ -1301,7 +1305,7 @@ function refreshView() {
   if (!flow.cityCoords) return;
 
   const withDrive = LOCATIONS
-    .map(loc => ({ ...loc, driveMins: estimateDriveMins(flow.cityCoords, loc), miles: haversineMiles(flow.cityCoords, loc) }))
+    .map(loc => ({ ...loc, driveMins: estimateDriveMins(flow.cityCoords, loc, loc), miles: haversineMiles(flow.cityCoords, loc) }))
     .filter(loc => loc.lat && loc.lng)
     .filter(loc => isActiveInSeason(loc, flow.season))
     .filter(loc => flow.driveMins >= 9999 || loc.driveMins <= flow.driveMins)
