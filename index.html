@@ -263,6 +263,54 @@
   .ctx-sep { color: #d1ccc5; }
   .map-top-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; margin-left: auto; }
 
+  /* Search bar */
+  .map-search-row {
+    padding: 10px 18px;
+    border-bottom: 1px solid #f0ebe2;
+    background: #fdfaf7;
+  }
+  .map-search-wrap {
+    position: relative;
+    max-width: 340px;
+  }
+  .map-search-icon {
+    position: absolute;
+    left: 11px; top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    pointer-events: none;
+  }
+  .map-search-input {
+    width: 100%;
+    padding: 8px 12px 8px 32px;
+    border: 1px solid #e3dccf;
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 0.83rem;
+    background: white;
+    color: var(--ink);
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.15s;
+  }
+  .map-search-input:focus { border-color: var(--sage); }
+  .map-search-input::placeholder { color: #b8b0a4; }
+  .map-search-clear {
+    position: absolute;
+    right: 10px; top: 50%;
+    transform: translateY(-50%);
+    background: none; border: none;
+    cursor: pointer; font-size: 0.9rem;
+    color: var(--ink-soft); padding: 0;
+    line-height: 1; display: none;
+  }
+  .map-search-clear.visible { display: block; }
+  @media (max-width: 700px) {
+    .map-search-row { padding: 8px 12px; }
+    .map-search-wrap { max-width: 100%; }
+  }
+
   /* Map + detail panel side by side */
   .map-body {
     display: flex;
@@ -364,7 +412,7 @@
 
     /* Map stacks above detail panel */
     .map-body { flex-direction: column; height: auto; }
-    #leaflet-map { height: 280px; width: 100%; }
+    #leaflet-map { flex: none !important; height: 280px !important; width: 100% !important; min-height: 280px; }
     .loc-detail-panel { width: 100%; border-left: none; border-top: 1px solid #f0ebe2; max-height: 320px; }
 
     /* Detail panel photo smaller on mobile */
@@ -613,6 +661,7 @@ const flow = {
   filterOpen: false,
   filters: emptyFilters(),
   favorites: new Set(),  // Set of location IDs
+  searchQuery: '',
 };
 
 // Map state
@@ -709,13 +758,22 @@ function getAccessClass(level) {
   return '';
 }
 
+// Maps zone number → travel fee amount
 const ZONE_TRAVEL_FEES = {
-  'Zone 1': null,                  // no travel fee
-  'Zone 2': '$65',
-  'Zone 3': '$115',
-  'Zone 4': '$160',
-  'Zone 5': 'Custom (invoiced)',
+  1: null,              // no travel fee
+  2: '$65',
+  3: '$115',
+  4: '$160',
+  5: 'Custom (invoiced)',
 };
+
+// Normalize whatever Airtable stores ("Zone 4", "zone4", "4", "ZONE 4") → number
+function parseZone(raw) {
+  if (!raw) return null;
+  const s = String(raw).toLowerCase().replace(/[^0-9]/g, '');
+  const n = parseInt(s, 10);
+  return isNaN(n) ? null : n;
+}
 
 function buildFeesHTML(loc) {
   const clean = v => String(v || '').replace(/[$,\s]/g, '');
@@ -727,10 +785,10 @@ function buildFeesHTML(loc) {
   const rows = [];
 
   // Travel fee by zone
-  const zone = (loc.travelZone || '').trim();
-  if (zone && zone !== 'Zone 1') {
-    const amount = ZONE_TRAVEL_FEES[zone] || 'See invoice';
-    rows.push({ label: 'Travel fee', amount, hasFee: true });
+  const zoneNum = parseZone(loc.travelZone);
+  if (zoneNum && zoneNum !== 1) {
+    const amount = ZONE_TRAVEL_FEES[zoneNum] || 'See invoice';
+    rows.push({ label: `Travel fee (Zone ${zoneNum})`, amount, hasFee: true });
   }
 
   // Vehicle pass
@@ -1029,6 +1087,17 @@ async function renderStep5map() {
             </div>
           </div>
 
+          <!-- Search bar -->
+          <div class="map-search-row">
+            <div class="map-search-wrap">
+              <span class="map-search-icon">🔍</span>
+              <input class="map-search-input" id="loc-search" type="text"
+                placeholder="Search locations by name…"
+                value="${flow.searchQuery}" autocomplete="off" />
+              <button class="map-search-clear ${flow.searchQuery?'visible':''}" id="loc-search-clear" title="Clear search">✕</button>
+            </div>
+          </div>
+
           <!-- Map + detail panel, side by side -->
           <div class="map-body">
             <div id="leaflet-map"></div>
@@ -1120,6 +1189,29 @@ async function renderStep5map() {
     });
   });
 
+  // Search wiring
+  const searchInput = $('#loc-search');
+  const searchClear = $('#loc-search-clear');
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      flow.searchQuery = searchInput.value.trim();
+      searchClear.classList.toggle('visible', flow.searchQuery.length > 0);
+      flow.pickedLocation = null;
+      resetDetail();
+      refreshView();
+    });
+  }
+  if (searchClear) {
+    searchClear.addEventListener('click', () => {
+      flow.searchQuery = '';
+      searchInput.value = '';
+      searchClear.classList.remove('visible');
+      flow.pickedLocation = null;
+      resetDetail();
+      refreshView();
+    });
+  }
+
   setTimeout(() => { initMap(); refreshView(); }, 50);
 }
 
@@ -1156,18 +1248,29 @@ function initMap() {
     leafletMap.setView([flow.cityCoords.lat, flow.cityCoords.lng], 10);
   }
 
-  // Force Leaflet to recalculate its container size — critical on mobile
-  // where the container may not have final dimensions at init time
-  setTimeout(() => {
-    if (leafletMap) leafletMap.invalidateSize();
-  }, 100);
-  setTimeout(() => {
-    if (leafletMap) leafletMap.invalidateSize();
-  }, 500);
+  // Force Leaflet to recalculate container size — critical on mobile
+  // where flex/CSS layout may not be settled at init time
+  [100, 300, 600, 1000, 2000].forEach(ms => {
+    setTimeout(() => { if (leafletMap) leafletMap.invalidateSize(); }, ms);
+  });
+
+  // ResizeObserver: call invalidateSize whenever container dimensions change
+  if (typeof ResizeObserver !== 'undefined') {
+    const ro = new ResizeObserver(() => {
+      if (leafletMap) leafletMap.invalidateSize();
+    });
+    ro.observe(container);
+    // Store so we can disconnect on destroyMap
+    container._leafletRO = ro;
+  }
 }
 
 function destroyMap() {
-  if (leafletMap) { leafletMap.remove(); leafletMap = null; mapMarkers = {}; }
+  if (leafletMap) {
+    const container = document.getElementById('leaflet-map');
+    if (container && container._leafletRO) { container._leafletRO.disconnect(); }
+    leafletMap.remove(); leafletMap = null; mapMarkers = {};
+  }
   document.removeEventListener('click', closeFilterOnOutside);
 }
 
@@ -1205,6 +1308,14 @@ function refreshView() {
     .sort((a, b) => a.driveMins - b.driveMins);
 
   currentFiltered = applyFilters(withDrive);
+
+  // Apply search query (case-insensitive name match)
+  if (flow.searchQuery) {
+    const q = flow.searchQuery.toLowerCase();
+    currentFiltered = currentFiltered.filter(loc =>
+      (loc.name || '').toLowerCase().includes(q)
+    );
+  }
 
   const countEl = $('#grid-count');
   if (countEl) countEl.textContent = `${currentFiltered.length} spot${currentFiltered.length !== 1 ? 's' : ''} found`;
@@ -1422,10 +1533,10 @@ function renderStep6() {
           <p>Pay your <strong>$50 deposit</strong> to lock in your spot. The remainder is due when you receive your photos.</p>
           ${(() => {
             const feeLines = [];
-            const zone = (loc.travelZone || '').trim();
-            if (zone && zone !== 'Zone 1') {
-              const travelAmt = ZONE_TRAVEL_FEES[zone] || 'custom amount';
-              feeLines.push(`${travelAmt} travel fee`);
+            const zoneNum = parseZone(loc.travelZone);
+            if (zoneNum && zoneNum !== 1) {
+              const travelAmt = ZONE_TRAVEL_FEES[zoneNum] || 'custom amount';
+              feeLines.push(`${travelAmt} travel fee (Zone ${zoneNum})`);
             }
             const clean = v => String(v||'').replace(/[$,\s]/g,'');
             const fmt = v => { const n = parseFloat(clean(v)); return isNaN(n) ? String(v).trim() : `$${n.toLocaleString()}`; };
