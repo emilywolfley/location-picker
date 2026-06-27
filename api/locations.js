@@ -57,18 +57,28 @@ export default async function handler(req, res) {
     };
 
     // ── Map Locations ─────────────────────────────────────────────────
+    // Accept lat/lng as numbers OR text strings (Airtable field type varies)
+    const parseCoord = v => {
+      if (typeof v === "number") return v;
+      if (typeof v === "string" && v.trim() !== "") {
+        const n = parseFloat(v.trim());
+        return isNaN(n) ? null : n;
+      }
+      return null;
+    };
+
     const locations = locRecs
-      .filter(r =>
-        r.fields.Name &&
-        typeof r.fields.Latitude  === "number" &&
-        typeof r.fields.Longitude === "number"
-      )
+      .filter(r => {
+        const lat = parseCoord(r.fields.Latitude);
+        const lng = parseCoord(r.fields.Longitude);
+        return r.fields.Name && lat !== null && lng !== null;
+      })
       .filter(r => r.fields.Active !== false)   // show if Active is true OR not set
       .map(r => ({
         id:   r.id,
         name: r.fields.Name,
-        lat:  r.fields.Latitude,
-        lng:  r.fields.Longitude,
+        lat:  parseCoord(r.fields.Latitude),
+        lng:  parseCoord(r.fields.Longitude),
 
         // Type
         type: (r.fields.Type || "outdoor").toLowerCase(),
