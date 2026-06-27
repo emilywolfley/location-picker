@@ -1,4 +1,3 @@
-
 // Vercel serverless function: fetches locations + photos from Airtable
 // and returns clean JSON for the location picker site.
 
@@ -102,11 +101,11 @@ export default async function handler(req, res) {
         tags:       toArray(r.fields.Tags),          // scene tags: outdoor, trees, water…
         amenityTags: toArray(r.fields["Amenity Tags"]), // amenities: restrooms, wheelchair…
 
-        // Fees / zones
-        travelZone:        r.fields["Travel Zone"]         || "",
-        photoPassAmount:   r.fields["Photo Pass Amount"]   || "",
-        studioFeeAmount:   r.fields["Studio Fee Amount"]   || "",
-        vehiclePassAmount: r.fields["Vehicle Pass Amount"] || "",
+        // Fees / zones — try multiple possible Airtable field name variants
+        travelZone:        r.fields["Travel Zone"]          || r.fields["Travel zone"]         || r.fields["TravelZone"]          || "",
+        photoPassAmount:   r.fields["Photo Pass Amount"]    || r.fields["Photo Pass"]           || r.fields["Photo pass"]           || r.fields["Photo pass amount"] || "",
+        studioFeeAmount:   r.fields["Studio Fee Amount"]    || r.fields["Studio Fee"]           || r.fields["Studio fee"]           || r.fields["Studio fee amount"] || "",
+        vehiclePassAmount: r.fields["Vehicle Pass Amount"]  || r.fields["Vehicle Pass"]         || r.fields["Vehicle pass"]         || r.fields["Vehicle pass amount"] || "",
 
         // Google Maps link (not exposed publicly on the card, used post-booking)
         googleMapsPin: r.fields["Google Maps Pin (Private)"] || "",
