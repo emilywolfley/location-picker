@@ -1,3 +1,4 @@
+
 // Vercel serverless function: fetches locations + photos from Airtable
 // and returns clean JSON for the location picker site.
 
@@ -100,6 +101,9 @@ export default async function handler(req, res) {
         // Tags
         tags:       toArray(r.fields.Tags),          // scene tags: outdoor, trees, water…
         amenityTags: toArray(r.fields["Amenity Tags"]), // amenities: restrooms, wheelchair…
+
+        // Manual drive time override (in minutes) — fill this in Airtable for locations where the estimate is wrong
+        driveTimeMins: r.fields["Drive Time (min)"] || r.fields["Drive Time"] || r.fields["Drive time"] || null,
 
         // Fees / zones — try multiple possible Airtable field name variants
         travelZone:        r.fields["Travel Zone"]          || r.fields["Travel zone"]         || r.fields["TravelZone"]          || "",
