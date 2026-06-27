@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -219,9 +220,12 @@
     border-bottom: 1px solid #f0ebe2;
     flex-wrap: wrap;
   }
-  .map-top-ctx { font-size: 0.84rem; color: var(--ink-soft); }
-  .map-top-ctx strong { color: var(--ink); }
-  .map-top-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .map-top-ctx { font-size: 0.82rem; color: var(--ink-soft); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .ctx-chip { display: inline-flex; align-items: center; gap: 5px; }
+  .ctx-chip-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--ink-soft); opacity: 0.7; }
+  .ctx-chip strong { color: var(--ink); }
+  .ctx-sep { color: #d1ccc5; }
+  .map-top-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; margin-left: auto; }
 
   /* Map + detail panel side by side */
   .map-body {
@@ -289,7 +293,24 @@
   }
 
   /* Shared detail text styles */
-  .loc-name { font-family: 'Cormorant Garamond', serif; font-size: 1.2rem; color: var(--ink); line-height: 1.2; }
+  .detail-name-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+  .loc-name { font-family: 'Cormorant Garamond', serif; font-size: 1.2rem; color: var(--ink); line-height: 1.2; flex: 1; }
+
+  .fav-btn {
+    background: none;
+    border: 1.5px solid #e3dccf;
+    border-radius: 50%;
+    width: 32px; height: 32px;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    color: #c8b88a;
+    transition: all 0.15s;
+    padding: 0;
+  }
+  .fav-btn:hover { border-color: var(--gold); background: #fdf8ef; transform: scale(1.1); }
+  .fav-btn.fav-active { background: var(--gold); border-color: var(--gold); color: white; }
   .loc-dist { font-size: 0.76rem; color: var(--ink-soft); }
   .loc-desc { font-size: 0.8rem; color: var(--ink-soft); line-height: 1.5; }
   .loc-time { font-size: 0.76rem; color: var(--ink-soft); }
@@ -320,11 +341,14 @@
   .tag.amenity { background: #e3f2fd; color: #1565c0; }
 
   /* Fees */
-  .loc-fees { padding-top: 8px; border-top: 1px solid #f0ebe2; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; font-size: 0.76rem; }
-  .fees-label { font-weight: 500; color: var(--ink); }
-  .fee-badge { padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 500; }
-  .fee-badge.none    { background: #e8f5e9; color: #2e7d32; }
-  .fee-badge.has-fee { background: #fff3e0; color: #e65100; }
+  .loc-fees { padding-top: 8px; border-top: 1px solid #f0ebe2; }
+  .fee-badge { display: inline-block; padding: 3px 10px; border-radius: 4px; font-size: 0.72rem; font-weight: 500; }
+  .fee-badge.none { background: #e8f5e9; color: #2e7d32; }
+
+  .loc-fees-list { padding-top: 8px; border-top: 1px solid #f0ebe2; display: flex; flex-direction: column; gap: 4px; }
+  .fee-line { display: flex; justify-content: space-between; align-items: center; font-size: 0.76rem; }
+  .fee-line-label { color: var(--ink-soft); }
+  .fee-line-amount { font-weight: 600; color: var(--ink); background: #fff3e0; padding: 1px 7px; border-radius: 4px; font-size: 0.72rem; color: #c45c00; }
 
   .no-results { text-align: center; padding: 40px 20px; }
   .no-results h3 { font-size: 1.3rem; color: var(--ink); margin-bottom: 8px; }
@@ -362,26 +386,51 @@ const SEASONS = [
 ];
 
 const DRIVE_OPTS = [
-  { mins:15, label:'15 min', sub:'close to home'  },
-  { mins:30, label:'30 min', sub:'a quick trip'   },
-  { mins:45, label:'45 min', sub:'happy to drive' },
-  { mins:60, label:'1 hour', sub:'adventure ready'},
-  { mins:90, label:'1.5 hrs',sub:'go anywhere'    },
+  { mins:15,   label:'15 min',   sub:'close to home'       },
+  { mins:30,   label:'30 min',   sub:'a quick trip'        },
+  { mins:45,   label:'45 min',   sub:'happy to drive'      },
+  { mins:60,   label:'1 hour',   sub:'adventure ready'     },
+  { mins:90,   label:'1.5 hrs',  sub:'up for anything'     },
+  { mins:9999, label:'Anywhere', sub:'show all my locations'},
 ];
+
+function driveLabel() {
+  return (!flow.driveMins || flow.driveMins >= 9999) ? 'Anywhere' : `${flow.driveMins} min`;
+}
 
 const STATE_NAMES = { UT:'Utah', CA:'California' };
 
 const FILTER_DEFS = [
-  { key:'wheelchair', label:'Wheelchair Friendly', check: (loc, tags) => tags.some(t => t.includes('wheelchair')) },
-  { key:'restrooms',  label:'Restrooms',           check: (loc, tags) => tags.some(t => t.includes('restroom')) },
-  { key:'dogs',       label:'Dogs Allowed',         check: (loc, tags) => !tags.some(t => t.includes('dogs not allowed')) },
-  { key:'outdoor',    label:'Outdoor',              check: (loc, tags) => (loc.type||'').toLowerCase() === 'outdoor' },
-  { key:'indoor',     label:'Indoor',               check: (loc, tags) => (loc.type||'').toLowerCase() === 'indoor' },
-  { key:'mountains',  label:'Mountains',            check: (loc, tags) => tags.some(t => t.includes('mountain')) },
-  { key:'water',      label:'Water',                check: (loc, tags) => tags.some(t => t.includes('water')) },
-  { key:'trees',      label:'Trees',                check: (loc, tags) => tags.some(t => t.includes('tree')) },
-  { key:'urban',      label:'Urban',                check: (loc, tags) => tags.some(t => t.includes('urban')) },
-  { key:'field',      label:'Field',                check: (loc, tags) => tags.some(t => t.includes('field')) },
+  // ── Features ──────────────────────────────────────────────────────
+  { key:'wheelchair', label:'Wheelchair Friendly', group:'features', check: (loc, tags) => tags.some(t => t.includes('wheelchair')) },
+  { key:'restrooms',  label:'Restrooms',           group:'features', check: (loc, tags) => tags.some(t => t.includes('restroom')) },
+  { key:'dogs',       label:'Dogs Allowed',         group:'features', check: (loc, tags) => !tags.some(t => t.includes('dogs not allowed')) },
+  { key:'outdoor',    label:'Outdoor Only',          group:'features', check: (loc, tags) => (loc.type||'').toLowerCase() === 'outdoor' },
+  { key:'indoor',     label:'Indoor Only',           group:'features', check: (loc, tags) => (loc.type||'').toLowerCase() === 'indoor' },
+  { key:'mountains',  label:'Mountains',            group:'features', check: (loc, tags) => tags.some(t => t.includes('mountain')) },
+  { key:'water',      label:'Water',                group:'features', check: (loc, tags) => tags.some(t => t.includes('water')) },
+  { key:'trees',      label:'Trees',                group:'features', check: (loc, tags) => tags.some(t => t.includes('tree')) },
+  { key:'urban',      label:'Urban',                group:'features', check: (loc, tags) => tags.some(t => t.includes('urban')) },
+  { key:'field',      label:'Field',                group:'features', check: (loc, tags) => tags.some(t => t.includes('field')) },
+  // ── Fees (ON = exclude locations that require this fee) ────────────
+  { key:'no_vehicle_pass', label:'No Vehicle Pass', group:'fees',
+    check: (loc) => {
+      const v = String(loc.vehiclePassAmount || '').replace(/[$,\s]/g, '');
+      return !v || v === '0';
+    }
+  },
+  { key:'no_studio_fee',   label:'No Studio Fee',   group:'fees',
+    check: (loc) => {
+      const v = String(loc.studioFeeAmount || '').replace(/[$,\s]/g, '');
+      return !v || v === '0' || (loc.studioFeeAmount||'').toLowerCase() === 'none';
+    }
+  },
+  { key:'no_photo_pass',   label:'No Photo Pass',   group:'fees',
+    check: (loc) => {
+      const v = String(loc.photoPassAmount || '').replace(/[$,\s]/g, '');
+      return !v || v === '0';
+    }
+  },
 ];
 
 // ===================================================================
@@ -403,6 +452,7 @@ const flow = {
   termsAccepted: false,
   filterOpen: false,
   filters: emptyFilters(),
+  favorites: new Set(),  // Set of location IDs
 };
 
 // Map state
@@ -488,17 +538,58 @@ function getAccessClass(level) {
   return '';
 }
 
-function getFeeBadges(loc) {
-  const badges = [];
+const ZONE_TRAVEL_FEES = {
+  'Zone 1': null,                  // no travel fee
+  'Zone 2': '$65',
+  'Zone 3': '$115',
+  'Zone 4': '$160',
+  'Zone 5': 'Custom (invoiced)',
+};
+
+function buildFeesHTML(loc) {
+  const clean = v => String(v || '').replace(/[$,\s]/g, '');
+  const fmt   = v => {
+    const n = parseFloat(clean(v));
+    return isNaN(n) ? String(v).trim() : `$${n.toLocaleString()}`;
+  };
+
+  const rows = [];
+
+  // Travel fee by zone
   const zone = (loc.travelZone || '').trim();
-  if (zone && zone !== 'Zone 1') badges.push({ label:'Travel fee', cls:'has-fee' });
-  const clean = v => String(v||'').replace(/[$,\s]/g,'');
-  if (clean(loc.photoPassAmount)   && clean(loc.photoPassAmount)   !== '0') badges.push({ label:'Photo pass',  cls:'has-fee' });
-  if (clean(loc.studioFeeAmount)   && clean(loc.studioFeeAmount)   !== '0'
-    && (loc.studioFeeAmount||'').toLowerCase() !== 'none')                   badges.push({ label:'Studio fee',  cls:'has-fee' });
-  if (clean(loc.vehiclePassAmount) && clean(loc.vehiclePassAmount) !== '0') badges.push({ label:'Vehicle pass', cls:'has-fee' });
-  if (!badges.length) badges.push({ label:'No fees', cls:'none' });
-  return badges;
+  if (zone && zone !== 'Zone 1') {
+    const amount = ZONE_TRAVEL_FEES[zone] || 'See invoice';
+    rows.push({ label: 'Travel fee', amount, hasFee: true });
+  }
+
+  // Vehicle pass
+  const vp = clean(loc.vehiclePassAmount);
+  if (vp && vp !== '0') {
+    rows.push({ label: 'Vehicle pass', amount: fmt(loc.vehiclePassAmount), hasFee: true });
+  }
+
+  // Studio fee
+  const sf = clean(loc.studioFeeAmount);
+  if (sf && sf !== '0' && (loc.studioFeeAmount || '').toLowerCase() !== 'none') {
+    rows.push({ label: 'Studio fee', amount: fmt(loc.studioFeeAmount), hasFee: true });
+  }
+
+  // Photo pass
+  const pp = clean(loc.photoPassAmount);
+  if (pp && pp !== '0') {
+    rows.push({ label: 'Photo pass', amount: fmt(loc.photoPassAmount), hasFee: true });
+  }
+
+  if (!rows.length) {
+    return `<div class="loc-fees"><span class="fee-badge none">✓ No additional fees</span></div>`;
+  }
+
+  return `<div class="loc-fees-list">${rows.map(r =>
+    `<div class="fee-line">
+       <span class="fee-line-label">${r.label}</span>
+       <span class="fee-line-amount">${r.amount}</span>
+     </div>`
+  ).join('')}</div>`;
 }
 
 function allTags(loc) {
@@ -704,11 +795,26 @@ async function renderStep5map() {
         <!-- Contained map card -->
         <div class="map-card">
 
-          <!-- Top bar: context + spot count + filters -->
+          <!-- Top bar: context chips + filters -->
           <div class="map-top-bar">
             <div class="map-top-ctx">
-              <strong>${seasonLabel}</strong> · up to ${flow.driveMins} min from <strong>${flow.city}</strong>
-              <span class="map-ctx-change" id="change-city">change</span>
+              <span class="ctx-chip">
+                <span class="ctx-chip-label">Season</span>
+                <strong>${seasonLabel}</strong>
+                <span class="map-ctx-change" id="change-season">edit</span>
+              </span>
+              <span class="ctx-sep">·</span>
+              <span class="ctx-chip">
+                <span class="ctx-chip-label">Drive</span>
+                <strong>${driveLabel()}</strong>
+                <span class="map-ctx-change" id="change-drive">edit</span>
+              </span>
+              <span class="ctx-sep">·</span>
+              <span class="ctx-chip">
+                <span class="ctx-chip-label">From</span>
+                <strong>${flow.city}</strong>
+                <span class="map-ctx-change" id="change-city">edit</span>
+              </span>
             </div>
             <div class="map-top-right">
               <span class="grid-count" id="grid-count"></span>
@@ -719,8 +825,16 @@ async function renderStep5map() {
                   ▾
                 </button>
                 <div class="filter-panel ${flow.filterOpen?'open':''}" id="filter-panel">
-                  <div class="filter-panel-title">Filter locations</div>
-                  ${FILTER_DEFS.map(fd => `
+                  <div class="filter-panel-title">Features</div>
+                  ${FILTER_DEFS.filter(fd => fd.group === 'features').map(fd => `
+                    <div class="filter-row" data-key="${fd.key}">
+                      <span class="filter-row-label">${fd.label}</span>
+                      <div class="toggle ${flow.filters[fd.key]?'on':''}" data-key="${fd.key}">
+                        <div class="toggle-knob"></div>
+                      </div>
+                    </div>`).join('')}
+                  <div class="filter-panel-title" style="margin-top:4px;border-top:1px solid #f0ebe2;padding-top:10px;">Fees</div>
+                  ${FILTER_DEFS.filter(fd => fd.group === 'fees').map(fd => `
                     <div class="filter-row" data-key="${fd.key}">
                       <span class="filter-row-label">${fd.label}</span>
                       <div class="toggle ${flow.filters[fd.key]?'on':''}" data-key="${fd.key}">
@@ -757,7 +871,9 @@ async function renderStep5map() {
     </div>`;
 
   // Wire controls
-  $('#change-city').addEventListener('click', () => renderStep2());
+  $('#change-season').addEventListener('click', () => renderStep4()); // season step
+  $('#change-drive').addEventListener('click',  () => renderStep3()); // drive step
+  $('#change-city').addEventListener('click',   () => renderStep2()); // city step
   $('#back-map').addEventListener('click', () => renderStep4());
   $('#next-map').addEventListener('click', () => { if (flow.pickedLocation) renderStep6(); });
 
@@ -831,13 +947,19 @@ function destroyMap() {
 }
 
 function makeIcon(loc, selected = false) {
-  const c = selected ? '#6b7c63' : '#8a9b80';
+  const fav = flow.favorites.has(loc.id);
+  // Favorited pins: gold; selected: sage-dark; normal: sage
+  const c = fav ? '#b89968' : (selected ? '#6b7c63' : '#8a9b80');
   const w = selected ? 28 : 22;
   const h = selected ? 38 : 30;
   const r = selected ? 10 : 7.5;
+  // Star inside the circle when favorited
+  const inner = fav
+    ? `<text x="14" y="18" text-anchor="middle" font-size="${selected ? 11 : 9}" fill="${selected ? '#6b7c63' : '#8a9b80'}" font-family="sans-serif">★</text>`
+    : `<circle cx="14" cy="14" r="${r}" fill="white" opacity="0.9"/>`;
   const svg = `<svg width="${w}" height="${h}" viewBox="0 0 28 38" xmlns="http://www.w3.org/2000/svg">
     <path d="M14 0C6.268 0 0 6.268 0 14c0 10 14 24 14 24S28 24 28 14C28 6.268 21.732 0 14 0z" fill="${c}" stroke="white" stroke-width="1.5"/>
-    <circle cx="14" cy="14" r="${r}" fill="white" opacity="0.9"/>
+    ${inner}
   </svg>`;
   return L.divIcon({
     className: '',
@@ -854,7 +976,7 @@ function refreshView() {
     .map(loc => ({ ...loc, driveMins: estimateDriveMins(flow.cityCoords, loc), miles: haversineMiles(flow.cityCoords, loc) }))
     .filter(loc => loc.lat && loc.lng)
     .filter(loc => isActiveInSeason(loc, flow.season))
-    .filter(loc => loc.driveMins <= flow.driveMins)
+    .filter(loc => flow.driveMins >= 9999 || loc.driveMins <= flow.driveMins)
     .sort((a, b) => a.driveMins - b.driveMins);
 
   currentFiltered = applyFilters(withDrive);
@@ -900,15 +1022,21 @@ function buildDetailHTML(loc) {
   const amenTags  = (loc.amenityTags || []).filter(Boolean).map(t => `<span class="tag amenity">${t}</span>`).join('');
   const tagsHTML  = (sceneTags || amenTags) ? `<div class="loc-tags">${sceneTags}${amenTags}</div>` : '';
 
-  const fees = getFeeBadges(loc);
-  const feesHTML = `<div class="loc-fees"><span class="fees-label">Fees:</span>${fees.map(f => `<span class="fee-badge ${f.cls}">${f.label}</span>`).join('')}</div>`;
+  const feesHTML = buildFeesHTML(loc);
 
   const desc = (loc.description || loc.notes || '').trim();
+
+  const isFav = flow.favorites.has(loc.id);
 
   return `
     ${photoHTML}
     <div class="detail-info">
-      <div class="loc-name">${loc.name}</div>
+      <div class="detail-name-row">
+        <div class="loc-name">${loc.name}</div>
+        <button class="fav-btn ${isFav ? 'fav-active' : ''}" id="fav-btn" title="${isFav ? 'Remove from favorites' : 'Save to favorites'}">
+          ${isFav ? '★' : '☆'}
+        </button>
+      </div>
       <div class="loc-dist">~${Math.round(loc.driveMins)} min · ${Math.round(loc.miles)} mi from ${flow.city}</div>
       ${desc ? `<div class="loc-desc">${desc}</div>` : ''}
       ${loc.bestTimeOfDay ? `<div class="loc-time">🕐 <span class="loc-time-val">${loc.bestTimeOfDay}</span></div>` : ''}
@@ -938,6 +1066,9 @@ function selectLocation(id) {
   const panel = $('#loc-detail');
   if (panel) {
     panel.innerHTML = buildDetailHTML(loc);
+    // Wire favorite button
+    const favBtn = panel.querySelector('#fav-btn');
+    if (favBtn) favBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleFavorite(loc.id); });
   }
 
   // Enable pick button
@@ -949,6 +1080,26 @@ function resetDetail() {
   const panel = $('#loc-detail');
   if (panel) panel.innerHTML = `<div class="loc-detail-empty"><div class="loc-detail-empty-icon">📍</div><p>Click a pin on the map<br>to explore a location</p></div>`;
   const btn = $('#next-map'); if (btn) btn.disabled = true;
+}
+
+function toggleFavorite(id) {
+  if (flow.favorites.has(id)) {
+    flow.favorites.delete(id);
+  } else {
+    flow.favorites.add(id);
+  }
+  // Refresh the pin icon
+  const loc = currentFiltered.find(l => l.id === id);
+  if (loc && mapMarkers[id]) {
+    mapMarkers[id].setIcon(makeIcon(loc, flow.pickedLocation?.id === id));
+  }
+  // Update the fav button in the detail panel
+  const favBtn = $('#fav-btn');
+  if (favBtn) {
+    const isFav = flow.favorites.has(id);
+    favBtn.textContent = isFav ? '★ Unfavorite' : '☆ Favorite';
+    favBtn.classList.toggle('fav-active', isFav);
+  }
 }
 
 function updateFilterBadge() {
