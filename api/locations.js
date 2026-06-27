@@ -1,3 +1,4 @@
+
 // Vercel serverless function: fetches locations + photos from Airtable
 // and returns clean JSON for the location picker site.
 
