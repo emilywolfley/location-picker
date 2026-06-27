@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -155,6 +154,38 @@
     border-bottom: 1px solid #f0ebe2;
     margin-bottom: 4px;
   }
+
+  /* Accordion sections */
+  .fs-section { border-bottom: 1px solid #f0ebe2; }
+  .fs-section:last-of-type { border-bottom: none; }
+  .fs-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 11px 18px;
+    cursor: pointer;
+    font-size: 0.84rem;
+    font-weight: 500;
+    color: var(--ink);
+    user-select: none;
+    transition: background 0.1s;
+  }
+  .fs-header:hover { background: var(--cream); }
+  .fs-chevron {
+    font-size: 0.7rem;
+    color: var(--ink-soft);
+    transition: transform 0.2s;
+    display: inline-block;
+  }
+  .fs-chevron.rotated { transform: rotate(180deg); }
+  .fs-active-dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--sage);
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .fs-body { display: none; }
+  .fs-body.open { display: block; }
 
   .filter-row {
     display: flex;
@@ -497,6 +528,8 @@
   .stripe-btn { background: #635bff !important; }
   .stripe-btn:hover:not(:disabled) { background: #5048e5 !important; }
   .deposit-note { font-size: 0.85rem; color: var(--ink-soft); font-style: italic; margin-top: 10px; }
+  .fee-invoice-note { font-size: 0.88rem; color: var(--ink-soft); background: #fff8ef; border: 1px solid #f0e0c0; border-radius: 10px; padding: 10px 14px; margin-bottom: 4px; line-height: 1.5; }
+  .fee-invoice-note strong { color: var(--ink); }
   .change-loc-btn { display: inline-flex; align-items: center; gap: 6px; margin-top: 16px; padding: 10px 20px; background: transparent; color: var(--sage-dk); border: 1px solid var(--sage); border-radius: 999px; font-family: inherit; font-size: 0.85rem; cursor: pointer; transition: all 0.15s; }
   .change-loc-btn:hover { background: var(--sage); color: white; }
 </style>
@@ -536,34 +569,27 @@ const STATE_NAMES = { UT:'Utah', CA:'California' };
 
 const FILTER_DEFS = [
   // ── Features ──────────────────────────────────────────────────────
-  { key:'wheelchair', label:'Wheelchair Friendly', group:'features', check: (loc, tags) => tags.some(t => t.includes('wheelchair')) },
-  { key:'restrooms',  label:'Restrooms',           group:'features', check: (loc, tags) => tags.some(t => t.includes('restroom')) },
-  { key:'dogs',       label:'Dogs Allowed',         group:'features', check: (loc, tags) => !tags.some(t => t.includes('dogs not allowed')) },
-  { key:'outdoor',    label:'Outdoor Only',          group:'features', check: (loc, tags) => (loc.type||'').toLowerCase() === 'outdoor' },
-  { key:'indoor',     label:'Indoor Only',           group:'features', check: (loc, tags) => (loc.type||'').toLowerCase() === 'indoor' },
-  { key:'mountains',  label:'Mountains',            group:'features', check: (loc, tags) => tags.some(t => t.includes('mountain')) },
-  { key:'water',      label:'Water',                group:'features', check: (loc, tags) => tags.some(t => t.includes('water')) },
-  { key:'trees',      label:'Trees',                group:'features', check: (loc, tags) => tags.some(t => t.includes('tree')) },
-  { key:'urban',      label:'Urban',                group:'features', check: (loc, tags) => tags.some(t => t.includes('urban')) },
-  { key:'field',      label:'Field',                group:'features', check: (loc, tags) => tags.some(t => t.includes('field')) },
+  { key:'outdoor',    label:'Outdoor Only',  group:'features', check: (loc)       => (loc.type||'').toLowerCase() === 'outdoor' },
+  { key:'indoor',     label:'Indoor Only',   group:'features', check: (loc)       => (loc.type||'').toLowerCase() === 'indoor' },
+  { key:'mountains',  label:'Mountains',     group:'features', check: (loc, tags) => tags.some(t => t.includes('mountain')) },
+  { key:'water',      label:'Water',         group:'features', check: (loc, tags) => tags.some(t => t.includes('water')) },
+  { key:'trees',      label:'Trees',         group:'features', check: (loc, tags) => tags.some(t => t.includes('tree')) },
+  { key:'urban',      label:'Urban',         group:'features', check: (loc, tags) => tags.some(t => t.includes('urban')) },
+  { key:'field',      label:'Field',         group:'features', check: (loc, tags) => tags.some(t => t.includes('field')) },
+  { key:'dogs',       label:'Dogs Allowed',  group:'features', check: (loc, tags) => !tags.some(t => t.includes('dogs not allowed')) },
+  // ── Amenities ─────────────────────────────────────────────────────
+  { key:'big_groups', label:'Good for Big Groups',    group:'amenities', check: (loc, tags) => tags.some(t => t.includes('big group')) },
+  { key:'wheelchair', label:'Wheelchair Accessible',  group:'amenities', check: (loc, tags) => tags.some(t => t.includes('wheelchair')) },
+  { key:'restrooms',  label:'Restrooms',              group:'amenities', check: (loc, tags) => tags.some(t => t.includes('restroom')) },
   // ── Fees (ON = exclude locations that require this fee) ────────────
   { key:'no_vehicle_pass', label:'No Vehicle Pass', group:'fees',
-    check: (loc) => {
-      const v = String(loc.vehiclePassAmount || '').replace(/[$,\s]/g, '');
-      return !v || v === '0';
-    }
+    check: (loc) => { const v = String(loc.vehiclePassAmount||'').replace(/[$,\s]/g,''); return !v||v==='0'; }
   },
-  { key:'no_studio_fee',   label:'No Studio Fee',   group:'fees',
-    check: (loc) => {
-      const v = String(loc.studioFeeAmount || '').replace(/[$,\s]/g, '');
-      return !v || v === '0' || (loc.studioFeeAmount||'').toLowerCase() === 'none';
-    }
+  { key:'no_photo_pass', label:'No Photo Pass', group:'fees',
+    check: (loc) => { const v = String(loc.photoPassAmount||'').replace(/[$,\s]/g,''); return !v||v==='0'; }
   },
-  { key:'no_photo_pass',   label:'No Photo Pass',   group:'fees',
-    check: (loc) => {
-      const v = String(loc.photoPassAmount || '').replace(/[$,\s]/g, '');
-      return !v || v === '0';
-    }
+  { key:'no_studio_fee', label:'No Studio Fee', group:'fees',
+    check: (loc) => { const v = String(loc.studioFeeAmount||'').replace(/[$,\s]/g,''); return !v||v==='0'||(loc.studioFeeAmount||'').toLowerCase()==='none'; }
   },
 ];
 
@@ -974,22 +1000,27 @@ async function renderStep5map() {
                   ▾
                 </button>
                 <div class="filter-panel ${flow.filterOpen?'open':''}" id="filter-panel">
-                  <div class="filter-panel-title">Features</div>
-                  ${FILTER_DEFS.filter(fd => fd.group === 'features').map(fd => `
-                    <div class="filter-row" data-key="${fd.key}">
-                      <span class="filter-row-label">${fd.label}</span>
-                      <div class="toggle ${flow.filters[fd.key]?'on':''}" data-key="${fd.key}">
-                        <div class="toggle-knob"></div>
+                  ${['features','amenities','fees'].map(group => {
+                    const groupLabel = group.charAt(0).toUpperCase() + group.slice(1);
+                    const defs = FILTER_DEFS.filter(fd => fd.group === group);
+                    const activeInGroup = defs.filter(fd => flow.filters[fd.key]).length;
+                    return `
+                    <div class="fs-section">
+                      <div class="fs-header" data-section="${group}">
+                        <span>${groupLabel}${activeInGroup > 0 ? ` <span class="fs-active-dot"></span>` : ''}</span>
+                        <span class="fs-chevron">▾</span>
                       </div>
-                    </div>`).join('')}
-                  <div class="filter-panel-title" style="margin-top:4px;border-top:1px solid #f0ebe2;padding-top:10px;">Fees</div>
-                  ${FILTER_DEFS.filter(fd => fd.group === 'fees').map(fd => `
-                    <div class="filter-row" data-key="${fd.key}">
-                      <span class="filter-row-label">${fd.label}</span>
-                      <div class="toggle ${flow.filters[fd.key]?'on':''}" data-key="${fd.key}">
-                        <div class="toggle-knob"></div>
+                      <div class="fs-body" id="fs-${group}">
+                        ${defs.map(fd => `
+                          <div class="filter-row" data-key="${fd.key}">
+                            <span class="filter-row-label">${fd.label}</span>
+                            <div class="toggle ${flow.filters[fd.key]?'on':''}" data-key="${fd.key}">
+                              <div class="toggle-knob"></div>
+                            </div>
+                          </div>`).join('')}
                       </div>
-                    </div>`).join('')}
+                    </div>`;
+                  }).join('')}
                   <div class="filter-clear-row">
                     <button class="filter-clear-btn" id="clear-filters">Clear all</button>
                   </div>
@@ -1064,10 +1095,29 @@ async function renderStep5map() {
     e.stopPropagation();
     flow.filters = emptyFilters();
     document.querySelectorAll('.toggle').forEach(t => t.classList.remove('on'));
+    document.querySelectorAll('.fs-active-dot').forEach(d => d.remove());
     updateFilterBadge();
     flow.pickedLocation = null;
     resetDetail();
     refreshView();
+  });
+
+  // Accordion section toggles
+  document.querySelectorAll('.fs-header').forEach(header => {
+    header.addEventListener('click', e => {
+      e.stopPropagation();
+      const section = header.dataset.section;
+      const body = document.getElementById(`fs-${section}`);
+      const chevron = header.querySelector('.fs-chevron');
+      const isOpen = body.classList.contains('open');
+      // Close all, then open clicked if it was closed
+      document.querySelectorAll('.fs-body').forEach(b => b.classList.remove('open'));
+      document.querySelectorAll('.fs-chevron').forEach(c => c.classList.remove('rotated'));
+      if (!isOpen) {
+        body.classList.add('open');
+        chevron.classList.add('rotated');
+      }
+    });
   });
 
   setTimeout(() => { initMap(); refreshView(); }, 50);
@@ -1370,6 +1420,26 @@ function renderStep6() {
         <div class="card" style="margin-top:20px;">
           <h2>Last step — secure your booking</h2>
           <p>Pay your <strong>$50 deposit</strong> to lock in your spot. The remainder is due when you receive your photos.</p>
+          ${(() => {
+            const feeLines = [];
+            const zone = (loc.travelZone || '').trim();
+            if (zone && zone !== 'Zone 1') {
+              const travelAmt = ZONE_TRAVEL_FEES[zone] || 'custom amount';
+              feeLines.push(`${travelAmt} travel fee`);
+            }
+            const clean = v => String(v||'').replace(/[$,\s]/g,'');
+            const fmt = v => { const n = parseFloat(clean(v)); return isNaN(n) ? String(v).trim() : `$${n.toLocaleString()}`; };
+            if (clean(loc.photoPassAmount) && clean(loc.photoPassAmount) !== '0')
+              feeLines.push(`${fmt(loc.photoPassAmount)} photo pass fee`);
+            if (clean(loc.vehiclePassAmount) && clean(loc.vehiclePassAmount) !== '0')
+              feeLines.push(`${fmt(loc.vehiclePassAmount)} vehicle pass fee`);
+            if (clean(loc.studioFeeAmount) && clean(loc.studioFeeAmount) !== '0' && (loc.studioFeeAmount||'').toLowerCase() !== 'none')
+              feeLines.push(`${fmt(loc.studioFeeAmount)} studio fee`);
+            return feeLines.length ? `
+              <p class="fee-invoice-note">
+                📋 Please note: <strong>${feeLines.join(' &amp; ')}</strong> will be added to your total invoice.
+              </p>` : '';
+          })()}
           <label class="check-row">
             <input type="checkbox" id="terms" />
             <span>I agree to the <a href="#" onclick="alert('Contract coming soon'); return false;">terms &amp; conditions</a> and photoshoot contract.</span>
