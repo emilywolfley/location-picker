@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
   :root {
     --cream:    #f7f3ec;
@@ -27,7 +27,6 @@
   p  { line-height: 1.6; color: var(--ink-soft); margin: 0 0 1.2em; }
 
   .stage { max-width: 720px; margin: 0 auto; padding: 64px 24px 100px; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; }
-  .stage--wide { max-width: 1200px; padding-bottom: 120px; }
 
   .brand { position: fixed; top: 24px; left: 24px; font-family: 'Cormorant Garamond', serif; font-size: 1.05rem; letter-spacing: 4px; text-transform: uppercase; color: var(--ink-soft); z-index: 200; }
   .progress { position: fixed; top: 24px; right: 24px; font-size: 0.78rem; color: var(--ink-soft); letter-spacing: 1px; z-index: 200; }
@@ -62,88 +61,289 @@
   .label { display: block; font-size: 0.78rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 8px; }
   .pill { display: inline-block; padding: 4px 12px; background: var(--warm); color: var(--ink-soft); border-radius: 999px; font-size: 0.78rem; letter-spacing: 0.5px; margin-right: 6px; }
 
-  /* ── LOCATION GRID ── */
-  .grid-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
-  .grid-count { font-size: 0.88rem; color: var(--ink-soft); }
-  .grid-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  /* ══════════════════════════════════════════
+     STEP 4 — MAP + SIDEBAR LAYOUT
+  ══════════════════════════════════════════ */
+  .map-view {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--cream);
+    z-index: 10;
+  }
 
-  .drive-select { padding: 10px 14px; font-size: 0.88rem; font-family: inherit; border: 1px solid #e3dccf; border-radius: 999px; background: white; color: var(--ink); outline: none; cursor: pointer; }
+  /* Top controls bar */
+  .map-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+    background: white;
+    border-bottom: 1px solid #e3dccf;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    z-index: 150;
+  }
+  .map-controls-left {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-right: 12px;
+  }
+  .map-ctx {
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+  }
+  .map-ctx strong { color: var(--ink); }
+  .map-ctx-change {
+    color: var(--sage-dk);
+    cursor: pointer;
+    text-decoration: underline;
+    font-size: 0.78rem;
+    margin-left: 6px;
+  }
+  .map-controls-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .grid-count { font-size: 0.82rem; color: var(--ink-soft); white-space: nowrap; }
+
+  .drive-select {
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    border: 1px solid #e3dccf;
+    border-radius: 999px;
+    background: var(--cream);
+    color: var(--ink);
+    outline: none;
+    cursor: pointer;
+  }
   .drive-select:focus { border-color: var(--sage); }
 
-  /* Filter button */
-  .filter-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; background: white; border: 1px solid #e3dccf; border-radius: 999px; font-size: 0.88rem; color: var(--ink); cursor: pointer; transition: all 0.15s; font-family: inherit; }
-  .filter-btn:hover, .filter-btn.open { border-color: var(--sage); background: var(--cream); }
-  .filter-count-badge { background: var(--sage); color: white; border-radius: 999px; width: 18px; height: 18px; font-size: 0.7rem; display: none; align-items: center; justify-content: center; font-weight: 600; }
-  .filter-count-badge.visible { display: inline-flex; }
-
-  /* Filter panel */
-  .filter-panel { background: white; border: 1px solid #e3dccf; border-radius: 16px; padding: 20px 24px 16px; margin-bottom: 20px; box-shadow: 0 8px 30px rgba(43,38,34,0.08); display: none; animation: fadeIn 0.2s ease; }
-  .filter-panel.open { display: block; }
-  .filter-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
-  .filter-item-label { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 1.2px; color: var(--ink-soft); margin-bottom: 8px; }
-  .toggle-group { display: flex; gap: 6px; }
-  .toggle-btn { padding: 6px 16px; background: var(--cream); border: 1px solid #e3dccf; border-radius: 999px; font-size: 0.82rem; font-family: inherit; color: var(--ink-soft); cursor: pointer; transition: all 0.15s; }
-  .toggle-btn:hover { border-color: var(--sage); color: var(--ink); }
-  .toggle-btn.yes { background: #e8f5e9; border-color: #81c784; color: #2e7d32; font-weight: 500; }
-  .toggle-btn.no  { background: #fce4ec; border-color: #ef9a9a; color: #c62828; font-weight: 500; }
-  .filter-footer { margin-top: 14px; padding-top: 12px; border-top: 1px solid #f0ebe2; text-align: right; }
-
-  /* Location card grid */
-  .loc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
-  @media (max-width: 680px) { .loc-grid { grid-template-columns: 1fr; } }
-
-  .loc-card {
-    background: white; border-radius: 16px; overflow: hidden;
-    box-shadow: 0 4px 20px rgba(43,38,34,0.07); cursor: pointer;
-    transition: all 0.2s; border: 2px solid transparent;
-    display: flex; flex-direction: column;
+  /* Filter dropdown */
+  .filter-wrap { position: relative; }
+  .filter-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 16px;
+    background: var(--cream);
+    border: 1px solid #e3dccf;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    color: var(--ink);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+    white-space: nowrap;
   }
-  .loc-card:hover { transform: translateY(-3px); box-shadow: 0 10px 32px rgba(43,38,34,0.13); }
-  .loc-card.selected { border-color: var(--sage); box-shadow: 0 0 0 4px rgba(138,155,128,0.18); }
+  .filter-btn:hover, .filter-btn.open { border-color: var(--sage); background: white; }
+  .filter-active-badge {
+    background: var(--sage);
+    color: white;
+    border-radius: 999px;
+    width: 17px; height: 17px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    display: none;
+    align-items: center; justify-content: center;
+  }
+  .filter-active-badge.show { display: inline-flex; }
 
-  .loc-photo { width: 100%; height: 200px; object-fit: cover; display: block; }
-  .loc-photo-placeholder { width: 100%; height: 200px; background: linear-gradient(135deg, var(--warm) 0%, var(--sage) 100%); display: flex; align-items: center; justify-content: center; color: white; font-family: 'Cormorant Garamond', serif; font-size: 1.1rem; text-align: center; padding: 0 16px; }
+  .filter-panel {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: white;
+    border: 1px solid #e3dccf;
+    border-radius: 16px;
+    padding: 8px 0 12px;
+    min-width: 240px;
+    box-shadow: 0 12px 40px rgba(43,38,34,0.12);
+    z-index: 300;
+    animation: fadeIn 0.15s ease;
+  }
+  .filter-panel.open { display: block; }
 
-  .loc-body { padding: 18px 20px 20px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
-  .loc-name { font-family: 'Cormorant Garamond', serif; font-size: 1.35rem; color: var(--ink); line-height: 1.2; }
-  .loc-dist { font-size: 0.8rem; color: var(--ink-soft); }
-  .loc-desc { font-size: 0.85rem; color: var(--ink-soft); line-height: 1.55; }
-  .loc-time { font-size: 0.8rem; color: var(--ink-soft); }
+  .filter-panel-title {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--ink-soft);
+    padding: 10px 18px 6px;
+    border-bottom: 1px solid #f0ebe2;
+    margin-bottom: 4px;
+  }
+
+  .filter-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 18px;
+    gap: 16px;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .filter-row:hover { background: var(--cream); }
+  .filter-row-label { font-size: 0.88rem; color: var(--ink); user-select: none; }
+
+  /* Toggle switch */
+  .toggle {
+    width: 38px; height: 21px;
+    background: #d1ccc5;
+    border-radius: 999px;
+    position: relative;
+    flex-shrink: 0;
+    transition: background 0.2s;
+    cursor: pointer;
+  }
+  .toggle.on { background: var(--sage); }
+  .toggle-knob {
+    position: absolute;
+    width: 17px; height: 17px;
+    background: white;
+    border-radius: 50%;
+    top: 2px; left: 2px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    transition: transform 0.2s;
+  }
+  .toggle.on .toggle-knob { transform: translateX(17px); }
+
+  .filter-clear-row {
+    padding: 8px 18px 0;
+    border-top: 1px solid #f0ebe2;
+    margin-top: 4px;
+    text-align: right;
+  }
+  .filter-clear-btn {
+    background: none; border: none;
+    font-family: inherit;
+    font-size: 0.78rem;
+    color: var(--rose);
+    cursor: pointer;
+    padding: 4px 0;
+  }
+  .filter-clear-btn:hover { text-decoration: underline; }
+
+  /* Map + sidebar body */
+  .map-body {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  #leaflet-map {
+    flex: 1;
+    min-width: 0;
+    z-index: 1;
+  }
+
+  /* Leaflet custom pins */
+  .map-pin {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 2.5px solid white;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .map-pin.selected {
+    width: 20px; height: 20px;
+    margin: -3px;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.4);
+  }
+
+  /* Cards sidebar */
+  .loc-sidebar {
+    width: 380px;
+    flex-shrink: 0;
+    overflow-y: auto;
+    padding: 12px;
+    background: var(--cream);
+    border-left: 1px solid #e3dccf;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  @media (max-width: 800px) {
+    .map-body { flex-direction: column; }
+    #leaflet-map { flex: none; height: 260px; width: 100%; }
+    .loc-sidebar { width: 100%; border-left: none; border-top: 1px solid #e3dccf; }
+  }
+
+  /* Location cards */
+  .loc-card {
+    background: white; border-radius: 14px; overflow: hidden;
+    box-shadow: 0 2px 12px rgba(43,38,34,0.07);
+    cursor: pointer; transition: all 0.2s;
+    border: 2px solid transparent;
+    flex-shrink: 0;
+  }
+  .loc-card:hover { box-shadow: 0 6px 20px rgba(43,38,34,0.12); transform: translateY(-1px); }
+  .loc-card.selected { border-color: var(--sage); box-shadow: 0 0 0 4px rgba(138,155,128,0.15); }
+
+  .loc-photo { width: 100%; height: 170px; object-fit: cover; display: block; }
+  .loc-photo-placeholder {
+    width: 100%; height: 170px;
+    background: linear-gradient(135deg, var(--warm) 0%, var(--sage) 100%);
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-family: 'Cormorant Garamond', serif;
+    font-size: 1rem; text-align: center; padding: 0 14px;
+  }
+
+  .loc-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 8px; }
+  .loc-name { font-family: 'Cormorant Garamond', serif; font-size: 1.25rem; color: var(--ink); line-height: 1.2; }
+  .loc-dist { font-size: 0.78rem; color: var(--ink-soft); }
+  .loc-desc { font-size: 0.82rem; color: var(--ink-soft); line-height: 1.5; }
+  .loc-time { font-size: 0.78rem; color: var(--ink-soft); }
   .loc-time-val { color: var(--gold); font-weight: 500; }
 
-  /* Accessibility */
-  .loc-access { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
-  .access-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 11px; border-radius: 999px; font-size: 0.74rem; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+  /* Accessibility badge */
+  .loc-access { display: flex; align-items: flex-start; gap: 7px; flex-wrap: wrap; }
+  .access-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
   .access-badge.easy     { background: #e8f5e9; color: #2e7d32; }
   .access-badge.moderate { background: #fff8e1; color: #e65100; }
   .access-badge.hard     { background: #fce4ec; color: #c62828; }
-  .access-dot { width: 7px; height: 7px; border-radius: 50%; }
+  .access-dot { width: 6px; height: 6px; border-radius: 50%; }
   .easy     .access-dot { background: #4caf50; }
   .moderate .access-dot { background: #ff9800; }
   .hard     .access-dot { background: #f44336; }
-  .access-text { font-size: 0.78rem; color: var(--ink-soft); line-height: 1.4; font-style: italic; }
+  .access-text { font-size: 0.76rem; color: var(--ink-soft); line-height: 1.4; font-style: italic; }
 
   /* Tags */
-  .loc-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-  .tag { padding: 3px 10px; border-radius: 999px; font-size: 0.72rem; letter-spacing: 0.3px; white-space: nowrap; }
+  .loc-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+  .tag { padding: 2px 9px; border-radius: 999px; font-size: 0.7rem; letter-spacing: 0.3px; white-space: nowrap; }
   .tag.scene   { background: var(--warm); color: var(--ink-soft); }
   .tag.amenity { background: #e3f2fd; color: #1565c0; }
 
   /* Fees */
-  .loc-fees { margin-top: auto; padding-top: 12px; border-top: 1px solid #f0ebe2; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 0.78rem; }
+  .loc-fees { padding-top: 8px; border-top: 1px solid #f0ebe2; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; font-size: 0.76rem; }
   .fees-label { font-weight: 500; color: var(--ink); }
-  .fee-badge { padding: 2px 9px; border-radius: 4px; font-size: 0.72rem; font-weight: 500; }
+  .fee-badge { padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 500; }
   .fee-badge.none    { background: #e8f5e9; color: #2e7d32; }
   .fee-badge.has-fee { background: #fff3e0; color: #e65100; }
 
-  /* Sticky pick bar */
-  .pick-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(247,243,236,0.96); backdrop-filter: blur(10px); border-top: 1px solid #e3dccf; padding: 14px 24px; display: flex; justify-content: center; z-index: 100; }
-  .pick-bar-inner { display: flex; justify-content: space-between; align-items: center; gap: 12px; max-width: 1200px; width: 100%; }
+  .no-results { text-align: center; padding: 40px 20px; }
+  .no-results h3 { font-size: 1.3rem; color: var(--ink); margin-bottom: 8px; }
+
+  /* Bottom pick bar */
+  .pick-bar {
+    position: relative;
+    background: rgba(247,243,236,0.97);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid #e3dccf;
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    z-index: 150;
+  }
   .pick-bar-info { font-size: 0.88rem; color: var(--ink-soft); }
   .pick-bar-info strong { color: var(--ink); }
-
-  .no-results { grid-column: 1 / -1; text-align: center; padding: 60px 20px; }
-  .no-results h3 { font-size: 1.4rem; color: var(--ink); margin-bottom: 8px; }
+  .pick-bar-right { display: flex; gap: 10px; }
 
   /* Confirmation */
   .check-row { display: flex; align-items: flex-start; gap: 10px; padding: 14px; background: var(--cream); border-radius: 10px; margin: 24px 0; cursor: pointer; }
@@ -161,9 +361,10 @@
 <body>
 
 <div class="brand">EMILY SHARON</div>
-<div class="progress">Step <span id="step-num">1</span> of 5</div>
-<div class="stage" id="stage"></div>
+<div class="progress">Step <span id="step-num">1</span> of 6</div>
+<div id="stage"></div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // ===================================================================
 // CONSTANTS
@@ -186,12 +387,16 @@ const DRIVE_OPTS = [
 const STATE_NAMES = { UT:'Utah', CA:'California' };
 
 const FILTER_DEFS = [
-  { key:'wheelchair', label:'Wheelchair Friendly' },
-  { key:'restrooms',  label:'Restrooms'            },
-  { key:'dogs',       label:'Dogs Allowed'          },
-  { key:'indoor',     label:'Indoor'                },
-  { key:'outdoor',    label:'Outdoor'               },
-  { key:'mountains',  label:'Mountains'             },
+  { key:'wheelchair', label:'Wheelchair Friendly', check: (loc, tags) => tags.some(t => t.includes('wheelchair')) },
+  { key:'restrooms',  label:'Restrooms',           check: (loc, tags) => tags.some(t => t.includes('restroom')) },
+  { key:'dogs',       label:'Dogs Allowed',         check: (loc, tags) => !tags.some(t => t.includes('dogs not allowed')) },
+  { key:'outdoor',    label:'Outdoor',              check: (loc, tags) => (loc.type||'').toLowerCase() === 'outdoor' },
+  { key:'indoor',     label:'Indoor',               check: (loc, tags) => (loc.type||'').toLowerCase() === 'indoor' },
+  { key:'mountains',  label:'Mountains',            check: (loc, tags) => tags.some(t => t.includes('mountain')) },
+  { key:'water',      label:'Water',                check: (loc, tags) => tags.some(t => t.includes('water')) },
+  { key:'trees',      label:'Trees',                check: (loc, tags) => tags.some(t => t.includes('tree')) },
+  { key:'urban',      label:'Urban',                check: (loc, tags) => tags.some(t => t.includes('urban')) },
+  { key:'field',      label:'Field',                check: (loc, tags) => tags.some(t => t.includes('field')) },
 ];
 
 // ===================================================================
@@ -200,18 +405,25 @@ const FILTER_DEFS = [
 let LOCATIONS = [];
 const dataPromise = loadLocations();
 
+const emptyFilters = () => Object.fromEntries(FILTER_DEFS.map(f => [f.key, false]));
+
 const flow = {
   step: 1,
-  state:  null,   // 'UT' | 'CA'
-  season: null,   // 'winter' | 'spring' | 'summer' | 'fall'
+  state:  null,
+  season: null,
   city:   null,
   cityCoords: null,
   driveMins: null,
   pickedLocation: null,
   termsAccepted: false,
   filterOpen: false,
-  filters: { wheelchair:null, restrooms:null, dogs:null, indoor:null, outdoor:null, mountains:null },
+  filters: emptyFilters(),
 };
+
+// Map state
+let leafletMap   = null;
+let mapMarkers   = {};
+let currentFiltered = [];
 
 // ===================================================================
 // DATA
@@ -234,7 +446,6 @@ async function loadLocations() {
 // HELPERS
 // ===================================================================
 const $ = sel => document.querySelector(sel);
-
 function updateProgress() { $('#step-num').textContent = flow.step; }
 
 function haversineMiles(a, b) {
@@ -276,15 +487,13 @@ function getPhotoForSeason(loc, seasonId) {
 function isActiveInSeason(loc, seasonId) {
   const s = SEASONS.find(s => s.id === seasonId);
   if (!s) return true;
-  // Check seasons field first (from "Seasons Available" in Airtable)
   if (loc.seasons && loc.seasons.length > 0) {
     return loc.seasons.some(sv => sv.toLowerCase().trim() === seasonId);
   }
-  // Fall back to defaultMonths
   if (loc.defaultMonths && loc.defaultMonths.length > 0) {
     return loc.defaultMonths.some(m => s.months.includes(m));
   }
-  return true; // no restriction → always show
+  return true;
 }
 
 function getAccessClass(level) {
@@ -299,100 +508,65 @@ function getAccessClass(level) {
 function getFeeBadges(loc) {
   const badges = [];
   const zone = (loc.travelZone || '').trim();
-  if (zone && zone !== 'Zone 1') {
-    badges.push({ label: zone === 'Zone 5' ? 'Travel fee (invoiced)' : 'Travel fee', cls:'has-fee' });
-  }
-  const clean = v => String(v || '').replace(/[$,\s]/g,'');
-  if (clean(loc.photoPassAmount)   && clean(loc.photoPassAmount)   !== '0') badges.push({ label:'Photo pass',   cls:'has-fee' });
+  if (zone && zone !== 'Zone 1') badges.push({ label:'Travel fee', cls:'has-fee' });
+  const clean = v => String(v||'').replace(/[$,\s]/g,'');
+  if (clean(loc.photoPassAmount)   && clean(loc.photoPassAmount)   !== '0') badges.push({ label:'Photo pass',  cls:'has-fee' });
   if (clean(loc.studioFeeAmount)   && clean(loc.studioFeeAmount)   !== '0'
-    && (loc.studioFeeAmount||'').toLowerCase() !== 'none')                   badges.push({ label:'Studio fee',   cls:'has-fee' });
-  if (clean(loc.vehiclePassAmount) && clean(loc.vehiclePassAmount) !== '0') badges.push({ label:'Vehicle pass',  cls:'has-fee' });
+    && (loc.studioFeeAmount||'').toLowerCase() !== 'none')                   badges.push({ label:'Studio fee',  cls:'has-fee' });
+  if (clean(loc.vehiclePassAmount) && clean(loc.vehiclePassAmount) !== '0') badges.push({ label:'Vehicle pass', cls:'has-fee' });
   if (!badges.length) badges.push({ label:'No fees', cls:'none' });
   return badges;
 }
 
-function applyFilters(locs) {
-  const f = flow.filters;
-  return locs.filter(loc => {
-    const allTags = [
-      ...(loc.amenityTags || []),
-      ...(loc.tags || [])
-    ].map(t => t.toLowerCase().trim());
-    const type = (loc.type || '').toLowerCase();
+function allTags(loc) {
+  return [...(loc.amenityTags||[]), ...(loc.tags||[])].map(t => t.toLowerCase().trim());
+}
 
-    if (f.wheelchair === 'yes' && !allTags.some(t => t.includes('wheelchair'))) return false;
-    if (f.wheelchair === 'no'  &&  allTags.some(t => t.includes('wheelchair'))) return false;
-    if (f.restrooms  === 'yes' && !allTags.some(t => t.includes('restroom')))   return false;
-    if (f.restrooms  === 'no'  &&  allTags.some(t => t.includes('restroom')))   return false;
-    if (f.dogs === 'yes' &&  allTags.some(t => t.includes('dogs not allowed'))) return false;
-    if (f.dogs === 'no'  && !allTags.some(t => t.includes('dogs not allowed'))) return false;
-    if (f.indoor  === 'yes' && type !== 'indoor')  return false;
-    if (f.indoor  === 'no'  && type === 'indoor')  return false;
-    if (f.outdoor === 'yes' && type !== 'outdoor') return false;
-    if (f.outdoor === 'no'  && type === 'outdoor') return false;
-    if (f.mountains === 'yes' && !allTags.some(t => t.includes('mountain'))) return false;
-    if (f.mountains === 'no'  &&  allTags.some(t => t.includes('mountain'))) return false;
-    return true;
+function applyFilters(locs) {
+  return locs.filter(loc => {
+    const tags = allTags(loc);
+    return FILTER_DEFS.every(fd => !flow.filters[fd.key] || fd.check(loc, tags));
   });
 }
 
 function activeFilterCount() {
-  return Object.values(flow.filters).filter(v => v !== null).length;
+  return Object.values(flow.filters).filter(Boolean).length;
 }
 
 // ===================================================================
-// STEP 1 — State + Season
+// STEP 1 — State (dropdown)
 // ===================================================================
 function renderStep1() {
   flow.step = 1; updateProgress();
-  $('#stage').className = 'stage';
-  $('#stage').innerHTML = `
-    <div class="step">
-      <h1>Pick Your Location</h1>
-      <p>Welcome! Now that you're booked, let's find the perfect spot for your shoot. This will take about 5 minutes.</p>
+  destroyMap();
+  document.getElementById('stage').className = '';
+  document.getElementById('stage').style.cssText = '';
+  document.getElementById('stage').innerHTML = `
+    <div class="stage">
+      <div class="step">
+        <h1>Pick Your Location</h1>
+        <p>Welcome! Now that you're booked, let's find the perfect spot for your shoot. This will take about 5 minutes.</p>
 
-      <p class="label" style="margin-top:12px;">Where is your shoot?</p>
-      <div class="options" id="state-opts" style="grid-template-columns:1fr 1fr;">
-        <button class="option ${flow.state==='UT'?'active':''}" data-state="UT">
-          <div class="o-label">Utah</div>
-        </button>
-        <button class="option ${flow.state==='CA'?'active':''}" data-state="CA">
-          <div class="o-label">California</div>
-        </button>
-      </div>
+        <p class="label" style="margin-top:12px;">Where is your shoot?</p>
+        <select class="input" id="state-select" style="cursor:pointer;">
+          <option value="" disabled ${!flow.state?'selected':''}>Select a state…</option>
+          <option value="UT" ${flow.state==='UT'?'selected':''}>Utah</option>
+          <option value="CA" ${flow.state==='CA'?'selected':''}>California</option>
+        </select>
 
-      <p class="label" style="margin-top:28px;">When is your shoot?</p>
-      <div class="options" id="season-opts" style="grid-template-columns:repeat(4,1fr);">
-        ${SEASONS.map(s => `
-          <button class="option ${flow.season===s.id?'active':''}" data-season="${s.id}">
-            <div class="o-label">${s.label}</div>
-            <div class="o-sub">${s.sub}</div>
-          </button>`).join('')}
-      </div>
-
-      <div class="btn-row">
-        <span></span>
-        <button class="btn" id="next-1" ${flow.state && flow.season ? '' : 'disabled'}>Continue →</button>
+        <div class="btn-row">
+          <span></span>
+          <button class="btn" id="next-1" ${flow.state?'':'disabled'}>Continue →</button>
+        </div>
       </div>
     </div>`;
 
-  document.querySelectorAll('#state-opts .option').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#state-opts .option').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      flow.state = btn.dataset.state;
-      $('#next-1').disabled = !(flow.state && flow.season);
-    });
+  const sel = $('#state-select'), next = $('#next-1');
+  sel.addEventListener('change', () => {
+    flow.state = sel.value;
+    next.disabled = false;
   });
-  document.querySelectorAll('#season-opts .option').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#season-opts .option').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      flow.season = btn.dataset.season;
-      $('#next-1').disabled = !(flow.state && flow.season);
-    });
-  });
-  $('#next-1').addEventListener('click', () => renderStep2());
+  next.addEventListener('click', () => renderStep2());
 }
 
 // ===================================================================
@@ -400,17 +574,21 @@ function renderStep1() {
 // ===================================================================
 function renderStep2() {
   flow.step = 2; updateProgress();
-  $('#stage').className = 'stage';
-  $('#stage').innerHTML = `
-    <div class="step">
-      <h1>Where in ${STATE_NAMES[flow.state] || 'your state'}?</h1>
-      <p>Type the city or zip code closest to you. We'll show you spots within your driving range.</p>
-      <p class="label">Your city or zip</p>
-      <input class="input" id="city-input" placeholder="e.g. Provo, 84601, or Park City" autofocus value="${flow.city||''}" />
-      <p class="small-note" id="city-status"></p>
-      <div class="btn-row">
-        <button class="btn btn-secondary" id="back-2">← Back</button>
-        <button class="btn" id="next-2" ${flow.city?'':'disabled'}>Continue →</button>
+  destroyMap();
+  document.getElementById('stage').className = '';
+  document.getElementById('stage').style.cssText = '';
+  document.getElementById('stage').innerHTML = `
+    <div class="stage">
+      <div class="step">
+        <h1>Where in ${STATE_NAMES[flow.state] || 'your state'}?</h1>
+        <p>Type the city or zip code closest to you. We'll show you spots within your driving range.</p>
+        <p class="label">Your city or zip</p>
+        <input class="input" id="city-input" placeholder="e.g. Provo, 84601, or Park City" autofocus value="${flow.city||''}" />
+        <p class="small-note" id="city-status"></p>
+        <div class="btn-row">
+          <button class="btn btn-secondary" id="back-2">← Back</button>
+          <button class="btn" id="next-2" ${flow.city?'':'disabled'}>Continue →</button>
+        </div>
       </div>
     </div>`;
 
@@ -441,21 +619,25 @@ function renderStep2() {
 // ===================================================================
 function renderStep3() {
   flow.step = 3; updateProgress();
-  $('#stage').className = 'stage';
-  $('#stage').innerHTML = `
-    <div class="step">
-      <h1>How far are you willing to drive?</h1>
-      <p>We'll only show locations within this drive time of <strong>${flow.city}</strong>.</p>
-      <div class="options" id="drive-opts">
-        ${DRIVE_OPTS.map(o => `
-          <button class="option ${flow.driveMins===o.mins?'active':''}" data-mins="${o.mins}">
-            <div class="o-label">${o.label}</div>
-            <div class="o-sub">${o.sub}</div>
-          </button>`).join('')}
-      </div>
-      <div class="btn-row">
-        <button class="btn btn-secondary" id="back-3">← Back</button>
-        <button class="btn" id="next-3" ${flow.driveMins?'':'disabled'}>Show me spots →</button>
+  destroyMap();
+  document.getElementById('stage').className = '';
+  document.getElementById('stage').style.cssText = '';
+  document.getElementById('stage').innerHTML = `
+    <div class="stage">
+      <div class="step">
+        <h1>How far are you willing to drive?</h1>
+        <p>We'll only show locations within this drive time of <strong>${flow.city}</strong>.</p>
+        <div class="options" id="drive-opts">
+          ${DRIVE_OPTS.map(o => `
+            <button class="option ${flow.driveMins===o.mins?'active':''}" data-mins="${o.mins}">
+              <div class="o-label">${o.label}</div>
+              <div class="o-sub">${o.sub}</div>
+            </button>`).join('')}
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-secondary" id="back-3">← Back</button>
+          <button class="btn" id="next-3" ${flow.driveMins?'':'disabled'}>Continue →</button>
+        </div>
       </div>
     </div>`;
 
@@ -472,163 +654,276 @@ function renderStep3() {
 }
 
 // ===================================================================
-// STEP 4 — Location grid
+// STEP 4 — Season picker
 // ===================================================================
-async function renderStep4() {
+function renderStep4() {
   flow.step = 4; updateProgress();
-  $('#stage').className = 'stage';
-
-  if (!LOCATIONS || LOCATIONS.length === 0) {
-    $('#stage').innerHTML = `<div class="step" style="text-align:center;"><h2>Loading locations…</h2><p>Just a moment.</p></div>`;
-    await dataPromise;
-    if (!LOCATIONS || LOCATIONS.length === 0) {
-      $('#stage').innerHTML = `<div class="step" style="text-align:center;"><h2>Couldn't load locations.</h2><p>Please refresh the page.</p></div>`;
-      return;
-    }
-  }
-
-  $('#stage').className = 'stage stage--wide';
-  const seasonLabel = SEASONS.find(s => s.id === flow.season)?.label || '';
-
-  $('#stage').innerHTML = `
-    <div class="step">
-      <h1 style="text-align:center;">Pick your spot</h1>
-      <p style="text-align:center; max-width:480px; margin:0 auto 24px;">
-        ${seasonLabel} locations within ${flow.driveMins} min of ${flow.city}
-        <span id="change-city" style="color:var(--sage-dk);cursor:pointer;font-size:0.82rem;margin-left:8px;text-decoration:underline;">change</span>
-      </p>
-
-      <div class="grid-controls">
-        <div class="grid-count" id="grid-count"></div>
-        <div class="grid-right">
-          <select class="drive-select" id="drive-quick">
-            ${DRIVE_OPTS.map(o => `<option value="${o.mins}" ${flow.driveMins===o.mins?'selected':''}>${o.label}</option>`).join('')}
-          </select>
-          <button class="filter-btn ${flow.filterOpen?'open':''}" id="filter-toggle">
-            ⚙ Filters
-            <span class="filter-count-badge ${activeFilterCount()>0?'visible':''}" id="filter-badge">${activeFilterCount()}</span>
-          </button>
+  destroyMap();
+  document.getElementById('stage').className = '';
+  document.getElementById('stage').style.cssText = '';
+  document.getElementById('stage').innerHTML = `
+    <div class="stage">
+      <div class="step">
+        <h1>When is your shoot?</h1>
+        <p>We'll show locations that are best for that time of year.</p>
+        <div class="options" id="season-opts" style="grid-template-columns:repeat(2,1fr);">
+          ${SEASONS.map(s => `
+            <button class="option ${flow.season===s.id?'active':''}" data-season="${s.id}">
+              <div class="o-label">${s.label}</div>
+              <div class="o-sub">${s.sub}</div>
+            </button>`).join('')}
         </div>
-      </div>
-
-      <div class="filter-panel ${flow.filterOpen?'open':''}" id="filter-panel">
-        <div class="filter-grid" id="filter-grid">
-          ${buildFilterGrid()}
-        </div>
-        <div class="filter-footer">
-          <button class="btn btn-secondary btn-small" id="clear-filters">Clear all filters</button>
-        </div>
-      </div>
-
-      <div class="loc-grid" id="loc-grid"></div>
-
-      <div class="pick-bar">
-        <div class="pick-bar-inner">
-          <div class="pick-bar-info" id="pick-info">Select a location above to continue</div>
-          <div style="display:flex;gap:10px;">
-            <button class="btn btn-secondary" id="back-4">← Back</button>
-            <button class="btn" id="next-4" disabled>Pick this spot →</button>
-          </div>
+        <div class="btn-row">
+          <button class="btn btn-secondary" id="back-4s">← Back</button>
+          <button class="btn" id="next-4s" ${flow.season?'':'disabled'}>Show me spots →</button>
         </div>
       </div>
     </div>`;
 
-  refreshGrid();
-  wireFilterToggles();
+  document.querySelectorAll('#season-opts .option').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#season-opts .option').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      flow.season = btn.dataset.season;
+      $('#next-4s').disabled = false;
+    });
+  });
+  $('#back-4s').addEventListener('click', () => renderStep3());
+  $('#next-4s').addEventListener('click', () => renderStep5map());
+}
 
+// ===================================================================
+// STEP 5 — Map + Sidebar
+// ===================================================================
+async function renderStep5map() {
+  flow.step = 5; updateProgress();
+  destroyMap();
+
+  if (!LOCATIONS || LOCATIONS.length === 0) {
+    document.getElementById('stage').innerHTML = `<div class="stage"><div class="step" style="text-align:center;"><h2>Loading locations…</h2><p>Just a moment.</p></div></div>`;
+    await dataPromise;
+    if (!LOCATIONS || LOCATIONS.length === 0) {
+      document.getElementById('stage').innerHTML = `<div class="stage"><div class="step" style="text-align:center;"><h2>Couldn't load locations.</h2><p>Please refresh the page.</p></div></div>`;
+      return;
+    }
+  }
+
+  const seasonLabel = SEASONS.find(s => s.id === flow.season)?.label || '';
+
+  // Full-screen map view
+  const el = document.getElementById('stage');
+  el.style.cssText = 'padding:0; margin:0; max-width:none;';
+  el.innerHTML = `
+    <div class="map-view">
+      <!-- Controls bar -->
+      <div class="map-controls">
+        <div class="map-controls-left">Emily Sharon</div>
+        <div class="map-ctx">
+          <strong>${seasonLabel}</strong> · ${flow.driveMins} min of
+          <strong>${flow.city}</strong>
+          <span class="map-ctx-change" id="change-city">change</span>
+        </div>
+        <div class="map-controls-right">
+          <span class="grid-count" id="grid-count"></span>
+          <select class="drive-select" id="drive-quick">
+            ${DRIVE_OPTS.map(o => `<option value="${o.mins}" ${flow.driveMins===o.mins?'selected':''}>${o.label}</option>`).join('')}
+          </select>
+          <div class="filter-wrap">
+            <button class="filter-btn ${flow.filterOpen?'open':''}" id="filter-btn">
+              ⚙ Filters
+              <span class="filter-active-badge ${activeFilterCount()>0?'show':''}" id="filter-badge">${activeFilterCount()}</span>
+              ▾
+            </button>
+            <div class="filter-panel ${flow.filterOpen?'open':''}" id="filter-panel">
+              <div class="filter-panel-title">Filter locations</div>
+              ${FILTER_DEFS.map(fd => `
+                <div class="filter-row" data-key="${fd.key}">
+                  <span class="filter-row-label">${fd.label}</span>
+                  <div class="toggle ${flow.filters[fd.key]?'on':''}" data-key="${fd.key}">
+                    <div class="toggle-knob"></div>
+                  </div>
+                </div>`).join('')}
+              <div class="filter-clear-row">
+                <button class="filter-clear-btn" id="clear-filters">Clear all</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Map + sidebar -->
+      <div class="map-body">
+        <div id="leaflet-map"></div>
+        <div class="loc-sidebar" id="loc-sidebar"></div>
+      </div>
+
+      <!-- Pick bar -->
+      <div class="pick-bar">
+        <div class="pick-bar-info" id="pick-info">Click a pin or card to select a location</div>
+        <div class="pick-bar-right">
+          <button class="btn btn-secondary btn-small" id="back-4">← Back</button>
+          <button class="btn btn-small" id="next-4" disabled>Pick this spot →</button>
+        </div>
+      </div>
+    </div>`;
+
+  // Wire controls
   $('#change-city').addEventListener('click', () => renderStep2());
   $('#drive-quick').addEventListener('change', e => {
     flow.driveMins = parseInt(e.target.value, 10);
     flow.pickedLocation = null;
     resetPickBar();
-    refreshGrid();
+    refreshView();
   });
-  $('#filter-toggle').addEventListener('click', () => {
+  $('#back-4').addEventListener('click', () => renderStep4());
+  $('#next-4').addEventListener('click', () => { if (flow.pickedLocation) renderStep6(); });
+
+  // Filter dropdown
+  $('#filter-btn').addEventListener('click', e => {
+    e.stopPropagation();
     flow.filterOpen = !flow.filterOpen;
     $('#filter-panel').classList.toggle('open', flow.filterOpen);
-    $('#filter-toggle').classList.toggle('open', flow.filterOpen);
+    $('#filter-btn').classList.toggle('open', flow.filterOpen);
   });
-  $('#clear-filters').addEventListener('click', () => {
-    flow.filters = { wheelchair:null, restrooms:null, dogs:null, indoor:null, outdoor:null, mountains:null };
-    $('#filter-grid').innerHTML = buildFilterGrid();
-    wireFilterToggles();
-    updateFilterBadge();
-    flow.pickedLocation = null;
-    resetPickBar();
-    refreshGrid();
-  });
-  $('#back-4').addEventListener('click', () => renderStep3());
-  $('#next-4').addEventListener('click', () => { if (flow.pickedLocation) renderStep5(); });
-}
+  document.addEventListener('click', closeFilterOnOutside);
 
-function buildFilterGrid() {
-  return FILTER_DEFS.map(fd => `
-    <div>
-      <div class="filter-item-label">${fd.label}</div>
-      <div class="toggle-group">
-        <button class="toggle-btn ${flow.filters[fd.key]==='yes'?'yes':''}" data-key="${fd.key}" data-val="yes">Yes</button>
-        <button class="toggle-btn ${flow.filters[fd.key]==='no'?'no':''}"  data-key="${fd.key}" data-val="no">No</button>
-      </div>
-    </div>`).join('');
-}
-
-function wireFilterToggles() {
-  document.querySelectorAll('.toggle-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const { key, val } = btn.dataset;
-      if (flow.filters[key] === val) {
-        flow.filters[key] = null;
-        btn.closest('.toggle-group').querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('yes','no'));
-      } else {
-        flow.filters[key] = val;
-        btn.closest('.toggle-group').querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('yes','no'));
-        btn.classList.add(val);
-      }
+  // Toggle clicks
+  document.querySelectorAll('.filter-row').forEach(row => {
+    row.addEventListener('click', () => {
+      const key = row.dataset.key;
+      flow.filters[key] = !flow.filters[key];
+      row.querySelector('.toggle').classList.toggle('on', flow.filters[key]);
       updateFilterBadge();
       flow.pickedLocation = null;
       resetPickBar();
-      refreshGrid();
+      refreshView();
     });
+  });
+
+  $('#clear-filters').addEventListener('click', e => {
+    e.stopPropagation();
+    flow.filters = emptyFilters();
+    document.querySelectorAll('.toggle').forEach(t => t.classList.remove('on'));
+    updateFilterBadge();
+    flow.pickedLocation = null;
+    resetPickBar();
+    refreshView();
+  });
+
+  // Init map + load data
+  setTimeout(() => {
+    initMap();
+    refreshView();
+  }, 50);
+}
+
+function closeFilterOnOutside(e) {
+  const panel = $('#filter-panel');
+  const btn   = $('#filter-btn');
+  if (panel && !panel.contains(e.target) && btn && !btn.contains(e.target)) {
+    flow.filterOpen = false;
+    panel.classList.remove('open');
+    btn && btn.classList.remove('open');
+  }
+}
+
+// ===================================================================
+// MAP
+// ===================================================================
+function initMap() {
+  if (leafletMap) return; // already initialized
+  const container = document.getElementById('leaflet-map');
+  if (!container) return;
+
+  leafletMap = L.map('leaflet-map', { zoomControl: true });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a> contributors',
+    maxZoom: 18
+  }).addTo(leafletMap);
+
+  if (flow.cityCoords) {
+    leafletMap.setView([flow.cityCoords.lat, flow.cityCoords.lng], 10);
+  }
+}
+
+function destroyMap() {
+  if (leafletMap) {
+    leafletMap.remove();
+    leafletMap = null;
+    mapMarkers = {};
+  }
+  document.removeEventListener('click', closeFilterOnOutside);
+}
+
+function pinColor(loc) {
+  return '#8a9b80';
+}
+
+function makeIcon(loc, selected = false) {
+  const color = pinColor(loc);
+  const size = selected ? 20 : 13;
+  return L.divIcon({
+    className: '',
+    html: `<div class="map-pin ${selected?'selected':''}" style="background:${color};width:${size}px;height:${size}px;"></div>`,
+    iconSize:   [size, size],
+    iconAnchor: [size/2, size/2],
   });
 }
 
-function updateFilterBadge() {
-  const n = activeFilterCount();
-  const badge = $('#filter-badge');
-  if (badge) { badge.textContent = n; badge.classList.toggle('visible', n > 0); }
-  const btn = $('#filter-toggle');
-  if (btn) btn.classList.toggle('open', flow.filterOpen || n > 0);
-}
+function refreshView() {
+  if (!flow.cityCoords) return;
 
-function resetPickBar() {
-  const btn = $('#next-4'); if (btn) btn.disabled = true;
-  const info = $('#pick-info'); if (info) info.textContent = 'Select a location above to continue';
-  const info2 = $('#pick-info'); if (info2) info2.innerHTML = 'Select a location above to continue';
-}
-
-function refreshGrid() {
   const withDrive = LOCATIONS
     .map(loc => ({ ...loc, driveMins: estimateDriveMins(flow.cityCoords, loc), miles: haversineMiles(flow.cityCoords, loc) }))
+    .filter(loc => loc.lat && loc.lng)
     .filter(loc => isActiveInSeason(loc, flow.season))
     .filter(loc => loc.driveMins <= flow.driveMins)
-    .sort((a, b) => a.driveMins - b.driveMins);
+    .sort((a,b) => a.driveMins - b.driveMins);
 
-  const filtered = applyFilters(withDrive);
+  currentFiltered = applyFilters(withDrive);
+
+  // Update count
   const countEl = $('#grid-count');
-  if (countEl) countEl.textContent = `${filtered.length} ${filtered.length===1?'spot':'spots'} found`;
+  if (countEl) countEl.textContent = `${currentFiltered.length} spot${currentFiltered.length !== 1 ? 's' : ''} found`;
 
-  const grid = $('#loc-grid');
-  if (!grid) return;
+  // Rebuild map markers
+  if (leafletMap) {
+    // Remove old markers
+    Object.values(mapMarkers).forEach(m => m.remove());
+    mapMarkers = {};
 
-  if (filtered.length === 0) {
-    grid.innerHTML = `<div class="no-results"><h3>No spots found</h3><p>Try a longer drive time, different filters, or a different season.</p></div>`;
+    currentFiltered.forEach(loc => {
+      const marker = L.marker([loc.lat, loc.lng], { icon: makeIcon(loc) })
+        .addTo(leafletMap)
+        .on('click', () => selectLocation(loc.id));
+      mapMarkers[loc.id] = marker;
+    });
+
+    if (currentFiltered.length > 0) {
+      const bounds = L.latLngBounds(currentFiltered.map(l => [l.lat, l.lng]));
+      leafletMap.fitBounds(bounds, { padding: [30, 30] });
+    }
+  }
+
+  // Rebuild sidebar
+  const sidebar = $('#loc-sidebar');
+  if (!sidebar) return;
+
+  if (currentFiltered.length === 0) {
+    sidebar.innerHTML = `<div class="no-results"><h3>No spots found</h3><p>Try a longer drive time, different filters, or a different season.</p></div>`;
     return;
   }
 
-  grid.innerHTML = filtered.map(loc => buildCard(loc)).join('');
+  sidebar.innerHTML = currentFiltered.map(loc => buildCard(loc)).join('');
   document.querySelectorAll('.loc-card').forEach(card => {
-    card.addEventListener('click', () => selectLocation(card.dataset.id, filtered));
+    card.addEventListener('click', () => selectLocation(card.dataset.id));
   });
+
+  // Re-highlight selected card if still in list
+  if (flow.pickedLocation && mapMarkers[flow.pickedLocation.id]) {
+    const card = document.querySelector(`.loc-card[data-id="${flow.pickedLocation.id}"]`);
+    if (card) card.classList.add('selected');
+  }
 }
 
 function buildCard(loc) {
@@ -638,30 +933,20 @@ function buildCard(loc) {
     : `<div class="loc-photo-placeholder">${loc.name}</div>`;
 
   const lvl = getAccessClass(loc.accessibilityLevel);
-  const accessBadgeHTML = loc.accessibilityLevel
-    ? `<span class="access-badge ${lvl}"><span class="access-dot"></span>${loc.accessibilityLevel}</span>`
-    : '';
-  const accessTextHTML = loc.accessibility
-    ? `<span class="access-text">${loc.accessibility}</span>`
-    : '';
-  const accessHTML = (accessBadgeHTML || accessTextHTML)
-    ? `<div class="loc-access">${accessBadgeHTML}${accessTextHTML}</div>`
-    : '';
+  const accessBadge = loc.accessibilityLevel
+    ? `<span class="access-badge ${lvl}"><span class="access-dot"></span>${loc.accessibilityLevel}</span>` : '';
+  const accessText = loc.accessibility
+    ? `<span class="access-text">${loc.accessibility}</span>` : '';
+  const accessHTML = (accessBadge || accessText) ? `<div class="loc-access">${accessBadge}${accessText}</div>` : '';
 
-  const sceneTags = (loc.tags || []).filter(Boolean).map(t => `<span class="tag scene">${t}</span>`).join('');
-  const amenityTags = (loc.amenityTags || []).filter(Boolean).map(t => `<span class="tag amenity">${t}</span>`).join('');
-  const tagsHTML = (sceneTags || amenityTags) ? `<div class="loc-tags">${sceneTags}${amenityTags}</div>` : '';
+  const sceneTags  = (loc.tags||[]).filter(Boolean).map(t => `<span class="tag scene">${t}</span>`).join('');
+  const amenTags   = (loc.amenityTags||[]).filter(Boolean).map(t => `<span class="tag amenity">${t}</span>`).join('');
+  const tagsHTML   = (sceneTags||amenTags) ? `<div class="loc-tags">${sceneTags}${amenTags}</div>` : '';
 
   const fees = getFeeBadges(loc);
-  const feesHTML = `<div class="loc-fees">
-    <span class="fees-label">Fees:</span>
-    ${fees.map(f => `<span class="fee-badge ${f.cls}">${f.label}</span>`).join('')}
-  </div>`;
+  const feesHTML = `<div class="loc-fees"><span class="fees-label">Fees:</span>${fees.map(f=>`<span class="fee-badge ${f.cls}">${f.label}</span>`).join('')}</div>`;
 
-  const desc = (loc.description || loc.notes || '').trim();
-  const descHTML = desc ? `<div class="loc-desc">${desc}</div>` : '';
-  const timeHTML = loc.bestTimeOfDay ? `<div class="loc-time">🕐 Best time: <span class="loc-time-val">${loc.bestTimeOfDay}</span></div>` : '';
-
+  const desc = (loc.description||loc.notes||'').trim();
   const isSelected = flow.pickedLocation && flow.pickedLocation.id === loc.id;
 
   return `
@@ -670,8 +955,8 @@ function buildCard(loc) {
       <div class="loc-body">
         <div class="loc-name">${loc.name}</div>
         <div class="loc-dist">~${Math.round(loc.driveMins)} min · ${Math.round(loc.miles)} mi from ${flow.city}</div>
-        ${descHTML}
-        ${timeHTML}
+        ${desc ? `<div class="loc-desc">${desc}</div>` : ''}
+        ${loc.bestTimeOfDay ? `<div class="loc-time">🕐 <span class="loc-time-val">${loc.bestTimeOfDay}</span></div>` : ''}
         ${accessHTML}
         ${tagsHTML}
         ${feesHTML}
@@ -679,61 +964,92 @@ function buildCard(loc) {
     </div>`;
 }
 
-function selectLocation(id, locs) {
-  const loc = locs.find(l => l.id === id);
+function selectLocation(id) {
+  const loc = currentFiltered.find(l => l.id === id);
   if (!loc) return;
   flow.pickedLocation = loc;
+
+  // Update card highlights
   document.querySelectorAll('.loc-card').forEach(c => c.classList.toggle('selected', c.dataset.id === id));
+
+  // Update map pin sizes
+  Object.entries(mapMarkers).forEach(([mid, marker]) => {
+    const locForMarker = currentFiltered.find(l => l.id === mid);
+    if (locForMarker) marker.setIcon(makeIcon(locForMarker, mid === id));
+  });
+
+  // Fly to location
+  if (leafletMap && loc.lat && loc.lng) {
+    leafletMap.flyTo([loc.lat, loc.lng], 13, { duration: 0.8 });
+  }
+
+  // Scroll card into view
+  const card = document.querySelector(`.loc-card[data-id="${id}"]`);
+  if (card) card.scrollIntoView({ behavior:'smooth', block:'nearest' });
+
+  // Enable pick button
   const btn = $('#next-4'); if (btn) btn.disabled = false;
   const info = $('#pick-info'); if (info) info.innerHTML = `Selected: <strong>${loc.name}</strong>`;
 }
 
+function resetPickBar() {
+  const btn = $('#next-4'); if (btn) btn.disabled = true;
+  const info = $('#pick-info'); if (info) info.textContent = 'Click a pin or card to select a location';
+}
+
+function updateFilterBadge() {
+  const n = activeFilterCount();
+  const badge = $('#filter-badge');
+  if (badge) { badge.textContent = n; badge.classList.toggle('show', n > 0); }
+}
+
 // ===================================================================
-// STEP 5 — Confirmation + Payment
+// STEP 6 — Confirmation + Payment
 // ===================================================================
-function renderStep5() {
-  flow.step = 5; updateProgress();
-  $('#stage').className = 'stage';
+function renderStep6() {
+  flow.step = 6; updateProgress();
+  destroyMap();
+  document.getElementById('stage').style.cssText = '';
   const loc = flow.pickedLocation;
   const seasonLabel = SEASONS.find(s => s.id === flow.season)?.label || '';
 
-  $('#stage').innerHTML = `
-    <div class="step">
-      <div class="card">
-        <h2>Good choice! ✨</h2>
-        <p>Your booking is updated with <strong>${loc.name}</strong>.</p>
-        <p>
-          <span class="pill">${loc.type || 'outdoor'}</span>
-          <span class="pill">${seasonLabel}</span>
-          <span class="pill">~${Math.round(loc.driveMins)} min from ${flow.city}</span>
-        </p>
-        ${loc.accessibility ? `<p style="font-size:0.9rem;color:var(--sage-dk);">♿ ${loc.accessibility}</p>` : ''}
-        ${(loc.description||loc.notes) ? `<p style="font-style:italic;font-size:0.9rem;">${loc.description||loc.notes}</p>` : ''}
-        <button class="change-loc-btn" id="change-loc">← Change my location</button>
-      </div>
-
-      <div class="card" style="margin-top:20px;">
-        <h2>Last step — secure your booking</h2>
-        <p>Pay your <strong>$50 deposit</strong> to lock in your spot. The remainder is due when you receive your photos.</p>
-        <label class="check-row">
-          <input type="checkbox" id="terms" />
-          <span>I agree to the <a href="#" onclick="alert('Contract preview coming soon'); return false;">terms &amp; conditions</a> and photoshoot contract.</span>
-        </label>
-        <div class="pay-options">
-          <button class="btn stripe-btn" id="pay-stripe" disabled>Pay $50 with Stripe</button>
+  document.getElementById('stage').innerHTML = `
+    <div class="stage">
+      <div class="step">
+        <div class="card">
+          <h2>Good choice! ✨</h2>
+          <p>Your booking is updated with <strong>${loc.name}</strong>.</p>
+          <p>
+            <span class="pill">${loc.type || 'outdoor'}</span>
+            <span class="pill">${seasonLabel}</span>
+            <span class="pill">~${Math.round(loc.driveMins)} min from ${flow.city}</span>
+          </p>
+          ${loc.accessibility ? `<p style="font-size:0.9rem;color:var(--sage-dk);">♿ ${loc.accessibility}</p>` : ''}
+          ${(loc.description||loc.notes) ? `<p style="font-style:italic;font-size:0.9rem;">${loc.description||loc.notes}</p>` : ''}
+          <button class="change-loc-btn" id="change-loc">← Change my location</button>
         </div>
-        <p class="deposit-note">Once your deposit is paid, you'll receive a confirmation text with the Google Maps link, parking info, and an outfit guide.</p>
+
+        <div class="card" style="margin-top:20px;">
+          <h2>Last step — secure your booking</h2>
+          <p>Pay your <strong>$50 deposit</strong> to lock in your spot. The remainder is due when you receive your photos.</p>
+          <label class="check-row">
+            <input type="checkbox" id="terms" />
+            <span>I agree to the <a href="#" onclick="alert('Contract coming soon'); return false;">terms &amp; conditions</a> and photoshoot contract.</span>
+          </label>
+          <div class="pay-options">
+            <button class="btn stripe-btn" id="pay-stripe" disabled>Pay $50 with Stripe</button>
+          </div>
+          <p class="deposit-note">Once your deposit is paid, you'll receive a confirmation text with the Google Maps link, parking info, and an outfit guide.</p>
+        </div>
       </div>
     </div>`;
 
-  $('#change-loc').addEventListener('click', () => renderStep4());
+  $('#change-loc').addEventListener('click', () => renderStep5map());
   $('#terms').addEventListener('change', e => {
     flow.termsAccepted = e.target.checked;
     $('#pay-stripe').disabled = !flow.termsAccepted;
   });
-  $('#pay-stripe').addEventListener('click', () => {
-    alert('This will redirect to your Stripe Payment Link.');
-  });
+  $('#pay-stripe').addEventListener('click', () => alert('This will redirect to your Stripe Payment Link.'));
 }
 
 // ===================================================================
