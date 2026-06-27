@@ -135,11 +135,16 @@
     border-radius: 16px;
     padding: 8px 0 12px;
     min-width: 240px;
+    max-height: 70vh;
+    overflow-y: auto;
     box-shadow: 0 12px 40px rgba(43,38,34,0.12);
     z-index: 300;
     animation: fadeIn 0.15s ease;
   }
   .filter-panel.open { display: block; }
+  @media (max-width: 700px) {
+    .filter-panel { right: auto; left: 0; min-width: 220px; }
+  }
 
   .filter-panel-title {
     font-size: 0.7rem;
@@ -317,9 +322,37 @@
   .loc-time-val { color: var(--gold); font-weight: 500; }
 
   @media (max-width: 700px) {
+    /* Map page outer padding */
+    .map-outer { padding: 56px 12px 80px !important; }
+
+    /* Top bar: stack context chips above filter button */
+    .map-top-bar { flex-direction: column; align-items: flex-start; gap: 8px; padding: 10px 12px; }
+    .map-top-ctx { font-size: 0.78rem; }
+    .map-top-right { width: 100%; justify-content: space-between; }
+    .grid-count { font-size: 0.78rem; }
+
+    /* Map stacks above detail panel */
     .map-body { flex-direction: column; height: auto; }
-    #leaflet-map { height: 260px; }
-    .loc-detail-panel { width: 100%; border-left: none; border-top: 1px solid #f0ebe2; }
+    #leaflet-map { height: 280px; width: 100%; }
+    .loc-detail-panel { width: 100%; border-left: none; border-top: 1px solid #f0ebe2; max-height: 320px; }
+
+    /* Detail panel photo smaller on mobile */
+    .detail-photo, .detail-photo-placeholder { height: 140px; }
+
+    /* Action bar */
+    .map-actions { padding: 10px 12px; }
+    .map-actions .btn { font-size: 0.82rem; padding: 11px 18px; }
+
+    /* Photo grid 2-col on mobile */
+    .photo-grid { column-count: 2; column-gap: 8px; }
+    .photo-grid-section { margin-top: 32px; }
+    .photo-grid-title { font-size: 1.4rem; }
+
+    /* Steps padding */
+    .stage { padding: 48px 16px 80px; }
+
+    /* Options grid — 2 col on mobile for drive time */
+    .options { grid-template-columns: repeat(2, 1fr); }
   }
 
   /* Accessibility badge */
@@ -352,6 +385,107 @@
 
   .no-results { text-align: center; padding: 40px 20px; }
   .no-results h3 { font-size: 1.3rem; color: var(--ink); margin-bottom: 8px; }
+
+  /* ══════════════════════════════════════════
+     PHOTO GRID (Pinterest-style)
+  ══════════════════════════════════════════ */
+  .photo-grid-section {
+    margin-top: 52px;
+  }
+  .photo-grid-header {
+    margin-bottom: 24px;
+  }
+  .photo-grid-title {
+    font-size: clamp(1.5rem, 3vw, 2.2rem);
+    margin: 0 0 6px;
+    color: var(--ink);
+  }
+  .photo-grid-sub {
+    font-size: 0.9rem;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+
+  .photo-grid {
+    column-count: 3;
+    column-gap: 12px;
+  }
+  @media (max-width: 600px) {
+    .photo-grid { column-count: 2; column-gap: 8px; }
+  }
+
+  .photo-grid-loading,
+  .photo-grid-empty {
+    column-span: all;
+    text-align: center;
+    color: var(--ink-soft);
+    font-style: italic;
+    font-size: 0.9rem;
+    padding: 32px 0;
+  }
+
+  .pg-item {
+    position: relative;
+    break-inside: avoid;
+    margin-bottom: 12px;
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    background: var(--warm);
+    box-shadow: 0 2px 8px rgba(43,38,34,0.07);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .pg-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(43,38,34,0.14);
+  }
+  .pg-item:hover .pg-overlay {
+    opacity: 1;
+  }
+
+  .pg-img {
+    width: 100%;
+    display: block;
+    border-radius: 12px;
+  }
+
+  .pg-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(43,38,34,0.72) 0%, transparent 50%);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 12px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .pg-loc-name {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1rem;
+    color: white;
+    line-height: 1.2;
+    font-weight: 500;
+  }
+  .pg-loc-dist {
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.75);
+    margin-top: 2px;
+  }
+
+  .pg-fav-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: var(--gold);
+    color: white;
+    font-size: 0.72rem;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  }
 
 
   /* Confirmation */
@@ -494,14 +628,25 @@ function estimateDriveMins(a, b) {
   return (haversineMiles(a, b) * 1.4) / 50 * 60;
 }
 
+// Fallback coords used when the geocode API isn't available (e.g. local file preview)
+const STATE_FALLBACK_COORDS = {
+  UT: { lat: 40.2338, lng: -111.6585 }, // Provo, UT
+  CA: { lat: 37.3382, lng: -121.8863 }, // San Jose, CA
+};
+
 async function geocodeCity(city, stateCode) {
   try {
     const url = '/api/geocode?' + new URLSearchParams({ city, state: stateCode });
     const r = await fetch(url);
-    if (!r.ok) return null;
+    if (!r.ok) throw new Error(`status ${r.status}`);
     const data = await r.json();
     if (data.lat && data.lng) return { lat: data.lat, lng: data.lng };
-  } catch(e) { console.error(e); }
+  } catch(e) {
+    console.warn('Geocode API unavailable, using state fallback:', e.message);
+    // In local/preview mode the API doesn't exist — fall back to state center
+    const fallback = STATE_FALLBACK_COORDS[stateCode];
+    if (fallback) return { ...fallback, _isFallback: true };
+  }
   return null;
 }
 
@@ -684,6 +829,10 @@ function renderStep2() {
       next.disabled = false; next.textContent = 'Continue →'; return;
     }
     flow.cityCoords = coords;
+    if (coords._isFallback) {
+      $('#city-status').textContent = '⚠ Preview mode — using approximate location. Distances may not be exact.';
+      await new Promise(r => setTimeout(r, 1200));
+    }
     renderStep3();
   });
 }
@@ -789,7 +938,7 @@ async function renderStep5map() {
   const seasonLabel = SEASONS.find(s => s.id === flow.season)?.label || '';
 
   el.innerHTML = `
-    <div style="max-width:900px;margin:0 auto;padding:80px 24px 120px;">
+    <div class="map-outer" style="max-width:900px;margin:0 auto;padding:80px 24px 120px;">
       <div class="step">
 
         <!-- Contained map card -->
@@ -867,6 +1016,18 @@ async function renderStep5map() {
           </div>
 
         </div>
+
+        <!-- Photo grid below map -->
+        <div class="photo-grid-section">
+          <div class="photo-grid-header">
+            <h2 class="photo-grid-title">Find a backdrop you love</h2>
+            <p class="photo-grid-sub">Browse photos from every available location — click one to jump to it on the map.</p>
+          </div>
+          <div class="photo-grid" id="photo-grid">
+            <div class="photo-grid-loading">Loading photos…</div>
+          </div>
+        </div>
+
       </div>
     </div>`;
 
@@ -930,7 +1091,12 @@ function initMap() {
   const container = document.getElementById('leaflet-map');
   if (!container) return;
 
-  leafletMap = L.map('leaflet-map', { zoomControl: true });
+  leafletMap = L.map('leaflet-map', {
+    zoomControl: true,
+    tap: true,          // enable tap on iOS
+    tapTolerance: 15,   // more forgiving tap detection on mobile
+  });
+
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a> contributors',
     maxZoom: 18
@@ -939,6 +1105,15 @@ function initMap() {
   if (flow.cityCoords) {
     leafletMap.setView([flow.cityCoords.lat, flow.cityCoords.lng], 10);
   }
+
+  // Force Leaflet to recalculate its container size — critical on mobile
+  // where the container may not have final dimensions at init time
+  setTimeout(() => {
+    if (leafletMap) leafletMap.invalidateSize();
+  }, 100);
+  setTimeout(() => {
+    if (leafletMap) leafletMap.invalidateSize();
+  }, 500);
 }
 
 function destroyMap() {
@@ -1003,6 +1178,64 @@ function refreshView() {
     flow.pickedLocation = null;
     resetDetail();
   }
+
+  // Rebuild photo grid
+  buildPhotoGrid(currentFiltered);
+}
+
+function buildPhotoGrid(locs) {
+  const container = $('#photo-grid');
+  if (!container) return;
+
+  // Collect all photos across filtered locations, tagged with their location
+  const items = [];
+  locs.forEach(loc => {
+    const photos = loc.photos && loc.photos.length ? loc.photos : [];
+    // Pick the season-best photo first, then any others (dedupe by id)
+    const best = getPhotoForSeason(loc, flow.season);
+    const ordered = best
+      ? [best, ...photos.filter(p => p.id !== best.id)]
+      : photos;
+    ordered.forEach(p => {
+      items.push({ photo: p, loc });
+    });
+  });
+
+  if (!items.length) {
+    container.innerHTML = `<p class="photo-grid-empty">No photos available for these locations yet.</p>`;
+    return;
+  }
+
+  // Shuffle so it doesn't always look the same order
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
+  }
+
+  container.innerHTML = items.map(({ photo, loc }) => {
+    const isFav = flow.favorites.has(loc.id);
+    const caption = (photo.caption || loc.name).replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    return `
+      <div class="pg-item" data-locid="${loc.id}" title="${caption}">
+        <img class="pg-img" src="${photo.url}" alt="${caption}" loading="lazy" />
+        <div class="pg-overlay">
+          <div class="pg-loc-name">${loc.name}</div>
+          <div class="pg-loc-dist">~${Math.round(loc.driveMins)} min away</div>
+        </div>
+        ${isFav ? '<div class="pg-fav-badge">★</div>' : ''}
+      </div>`;
+  }).join('');
+
+  // Wire clicks
+  container.querySelectorAll('.pg-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const id = item.dataset.locid;
+      selectLocation(id);
+      // Scroll back up to the map card
+      const mapCard = document.querySelector('.map-card');
+      if (mapCard) mapCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
 }
 
 function buildDetailHTML(loc) {
